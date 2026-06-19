@@ -63,6 +63,21 @@ func TestValidateProfileSemanticsRejectsUnknownCrayMPICHFlavor(t *testing.T) {
 	assertSemanticErrorContains(t, errs, "unsupported flavor unknown")
 }
 
+func TestValidateProfileSemanticsRejectsNonEthernetWithoutDrivers(t *testing.T) {
+	profile := minimalSemanticProfile()
+	profile.Fabric = model.Fabric{Type: "slingshot", Drivers: []model.NamedPrefixVersioned{}}
+	errs := validateProfileSemantics(profile)
+	assertSemanticErrorContains(t, errs, "non-ethernet fabric must include at least one fabric driver")
+}
+
+func TestValidateProfileSemanticsRejectsMPICompilerNotInExternals(t *testing.T) {
+	profile := minimalSemanticProfile()
+	profile.CompilersExternal = []model.CompilerExternal{{Name: "gcc", Version: "13.2.0"}}
+	profile.MPI = []model.MPIExternal{{Name: "openmpi", Version: "5.0.0", Compiler: "aocc@4.2"}}
+	errs := validateProfileSemantics(profile)
+	assertSemanticErrorContains(t, errs, "does not match compilers_external")
+}
+
 func TestVerifyProfileReportsSemanticFailure(t *testing.T) {
 	profile := minimalSemanticProfile()
 	profile.NodeTypes = map[string]model.NodeType{"login": profile.NodeTypes["login"]}

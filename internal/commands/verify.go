@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/ray12514/cluster-inspector/internal/model"
@@ -183,7 +184,13 @@ func validateNodeRoleSemantics(profile *model.Profile) []string {
 
 func validateGPUToolkitSemantics(profile *model.Profile) []string {
 	errors := []string{}
-	for name, node := range profile.NodeTypes {
+	names := make([]string, 0, len(profile.NodeTypes))
+	for name := range profile.NodeTypes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		node := profile.NodeTypes[name]
 		if node.GPU == nil {
 			continue
 		}
@@ -235,7 +242,12 @@ func validateCraySemantics(profile *model.Profile) []string {
 		return nil
 	}
 	errors := []string{}
+	flavors := make([]string, 0, len(profile.VendorCray.CrayMPICH.Flavors))
 	for flavor := range profile.VendorCray.CrayMPICH.Flavors {
+		flavors = append(flavors, flavor)
+	}
+	sort.Strings(flavors)
+	for _, flavor := range flavors {
 		switch flavor {
 		case "cce", "gcc", "aocc", "intel", "rocmcc", "nvhpc":
 		default:
@@ -264,11 +276,20 @@ func compilerReferenceExists(compilers []model.CompilerExternal, ref string) boo
 		if compiler.Name != name {
 			continue
 		}
-		if version == "" || compiler.Version == version || strings.HasPrefix(compiler.Version, version) || strings.HasPrefix(version, compiler.Version) {
+		if version == "" || versionsMatch(compiler.Version, version) {
 			return true
 		}
 	}
 	return false
+}
+
+// versionsMatch returns true when actual equals required, or actual extends
+// required on a dot boundary (so "4.2" matches "4.2.0" but not "4.20").
+func versionsMatch(actual, required string) bool {
+	if actual == required {
+		return true
+	}
+	return strings.HasPrefix(actual, required+".")
 }
 
 func validateFabricSemantics(profile *model.Profile) []string {
