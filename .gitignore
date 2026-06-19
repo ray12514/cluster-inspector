@@ -1,0 +1,19 @@
+# Built binaries (root-anchored so the cmd/cluster-inspector/ source
+# directory is NOT excluded — only the compiled binary at the repo root).
+/cluster-inspector
+dist/
+
+# Go workspace files
+*.test
+*.prof
+go.work
+go.work.sum
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store

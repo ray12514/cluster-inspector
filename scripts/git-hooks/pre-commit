@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Pre-commit hook for cluster-inspector.
+#
+# Runs gofmt check, go vet, fast tests, and the shell-discipline grep
+# against the working tree. Blocks the commit on any failure.
+#
+# To enable once per clone:
+#   ./scripts/install-hooks.sh
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+# Quick filter: only run when staged changes touch Go source or the
+# Makefile / scripts that enforce the rules.
+if ! git diff --cached --name-only | grep -qE '\.go$|^Makefile$|^scripts/'; then
+    exit 0
+fi
+
+echo "pre-commit: gofmt check…"
+unformatted="$(gofmt -l . 2>&1 | grep -v '^vendor/' || true)"
+if [[ -n "$unformatted" ]]; then
+    echo "pre-commit: the following files need 'gofmt -w':"
+    echo "$unformatted"
+    exit 1
+fi
+
+echo "pre-commit: go vet…"
+if ! go vet ./... ; then
+    echo "pre-commit: 'go vet' reported issues; fix before committing."
+    exit 1
+fi
+
+echo "pre-commit: shell-discipline…"
+if grep -rn 'bash -l\|bash --login\|sh -l\|bash -lc' cmd/ internal/ 2>/dev/null; then
+    echo "pre-commit: login-shell invocation forbidden; see design doc § Shell Invocation Discipline."
+    exit 1
+fi
+
+echo "pre-commit: go test (short)…"
+if ! go test -short ./... ; then
+    echo "pre-commit: tests failed; fix before committing."
+    exit 1
+fi
+
+echo "pre-commit: ok."

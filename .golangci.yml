@@ -1,0 +1,24 @@
+version: "2"
+
+run:
+  timeout: 2m
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - misspell
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Allow long lines and complex tests inside _test.go files.
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

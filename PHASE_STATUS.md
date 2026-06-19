@@ -1,0 +1,108 @@
+# Phase status
+
+Tracks progress against the implementation plan in
+`stack-planning/docs/cluster_inspector_stack_profile_design_v1.md`
+§ Implementation Plan.
+
+A phase is "complete" only when the design doc's acceptance criteria for
+that phase pass on the fixture corpus.
+
+## Phase 0 — Scaffolding
+
+- [x] Go module + directory shape
+- [x] Cobra CLI dispatch wired into `cmd/cluster-inspector/main.go`
+- [x] All five subcommand stubs return "not yet implemented" cleanly
+- [x] Makefile, golangci-lint config, pre-commit hook, AGENTS.md/AGENTS.md
+- [x] Apache-2.0 LICENSE
+- [x] Initial commit pushed to `github.com/ray12514/cluster-inspector`
+
+## Phase 1 — Contract and Skeleton
+
+Acceptance per design doc:
+- A hand-written fixture profile validates.
+- The tool can print a minimal homogeneous local profile skeleton.
+- The built binary runs without the source checkout.
+
+- [x] `internal/model/profile.go` — Go structs mirroring profile-v1.json
+- [x] `internal/model/fragments.go` — system + per-node fragment structs
+- [x] `internal/model/validation.go` — validate against embedded schema
+- [x] `internal/model/evidence.go` — evidence/confidence types
+- [x] `internal/output/yaml.go` — deterministic YAML emitter
+- [x] `internal/output/json.go` — diagnostics JSON emitter
+- [x] `internal/output/human.go` — human-readable summary
+- [x] `internal/resources/profile_schema.json` — synced from stack-planning
+- [x] Schema validation passes on a hand-written example profile
+- [x] `cluster-inspector profile --system local --node-type login=this:role=both` emits a minimal local skeleton
+
+## Phase 2 — System-Wide Probes
+
+Acceptance per design doc:
+- Generic Linux login-node system fragment is produced.
+- Cray login-node system fragment includes `vendor_cray` and Cray MPICH flavors when modules are available.
+- No probe requires Spack.
+
+- [x] `internal/probes/system.go` — OS, glibc, hostname identity
+- [x] `internal/probes/modules.go` — module-system detection (Lmod vs Tcl), MODULEPATH walk
+- [x] `internal/probes/fabric.go` — fabric type, drivers, userspace libs
+- [x] `internal/probes/cray.go` — Cray PE presence, MPICH flavors, CCE/PrgEnv inventory
+- [x] `internal/probes/compiler.go` — generic compiler externals (gcc, aocc, intel, etc.)
+- [x] `internal/probes/mpi.go` — generic MPI externals (openmpi, mpich, etc.)
+- [x] `internal/probes/gpu.go` — GPU vendor detection, driver, toolkit ceiling
+- [x] `internal/probes/filesystem.go` — install-tree, source-cache, buildcache candidates
+- [x] Evidence capture for every probe
+- [x] `unknown` confidence handling when commands are missing
+- [x] Table-driven parser tests landed for system / modules / cray / fabric / mpi / gpu / compiler / helpers (run via `go test ./...`); evidence on real Linux + Cray hosts still depends on running the binary there (deferred to the test cluster)
+
+**Note on the `profile` all-in-one command.** `cluster-inspector profile`
+still emits the Phase 1 minimal local skeleton (hard-coded placeholder
+facts in `commands.buildLocalSkeletonProfile`). It does **not** call the
+Phase 2 probes — by design, the cross-over happens in Phase 3 when
+`merge` ties `probe-system` + `probe-node` outputs together. Until then,
+use `probe-system` to exercise the real Phase 2 probes; `profile`
+remains the documented skeleton entrypoint.
+
+## Phase 3 — Node-Type Probes and Merge
+
+Acceptance per design doc:
+- Login + CPU compute + one GPU class merge into one valid profile.
+- Two GPU node types with different arch labels merge without duplication.
+- Re-running merge on the same fragments produces byte-identical YAML.
+
+- [ ] `internal/probes/node.go` — CPU target, GPU facts per-node, build-stage candidates
+- [ ] `internal/commands/probe_node.go` — `this:` / `srun:` / `pbsdsh:` runners
+- [ ] `internal/commands/merge.go` — deterministic merge of system + node fragments
+- [ ] Byte-identical re-merge test
+
+## Phase 4 — Module Hints and Clean-Shell Verification
+
+Acceptance per design doc:
+- Hints can exclude false compiler matches (e.g., `gcc-data/*`).
+- Cray PE compiler and Cray MPICH modules verified with modules + prefixes.
+- ROCm toolkit modules produce component external facts, not only `rocm/<v>`.
+
+- [ ] `internal/hints/schema.go` — `inspector-hints.yaml` shape
+- [ ] `internal/hints/apply.go` — include/exclude/extras semantics
+- [ ] Module enumeration + classification (extends `internal/probes/modules.go`)
+- [ ] Clean-shell verification of each candidate (controlled non-login shell, see AGENTS.md § Shell discipline)
+- [ ] Diagnostics for ambiguous/rejected/failed candidates
+
+## Phase 5 — Full Stack Fixtures
+
+Acceptance per design doc:
+- `example-cray` fixture validates with CPU + MI250X + MI300A node types.
+- `example-linux` fixture validates with site MPI and optional Spack-built MPI capability inputs.
+- Render-time required profile facts are present for the v6 stack examples.
+
+- [ ] `tests/fixtures/example-cray/` — golden profile + node fragments
+- [ ] `tests/fixtures/example-linux/` — golden profile + node fragments
+- [ ] `internal/commands/verify.go` — full v6 schema + semantic checks (final form)
+- [ ] `docs/probe-reference.md` — per-probe usage + caveats
+- [ ] `docs/profile-schema.md` — link/mirror of profile-v1.json reference
+
+## Notes for an agent picking up work
+
+1. Read `AGENTS.md` first.
+2. Find the lowest unchecked box above. Look at the file path. Open it.
+3. Look for the `// TODO: Phase N` marker — it tells you what the function body should become.
+4. Implement; check the box here when the design-doc acceptance criterion for the corresponding bullet passes.
+5. Run `make lint test` before committing.

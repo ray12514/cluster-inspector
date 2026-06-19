@@ -1,0 +1,67 @@
+# cluster-inspector
+
+The system-facts probe for the Spack stack generation system. Produces a
+reviewed, commit-ready `profile.yaml` that the renderer can consume.
+
+This repo implements the design specified in
+[`stack-planning/docs/cluster_inspector_stack_profile_design_v1.md`](https://github.com/ray12514/stack-planning/blob/main/docs/cluster_inspector_stack_profile_design_v1.md)
+and the per-field extraction map in
+[`stack-planning/docs/cluster_inspector_profile_extraction_map_v1.md`](https://github.com/ray12514/stack-planning/blob/main/docs/cluster_inspector_profile_extraction_map_v1.md).
+
+`stack-planning` is the source of truth for the design and for the
+canonical `profile.yaml` schema. **If the design doc disagrees with this
+implementation, the design is authoritative.** Either update the
+implementation or open a doc fix first.
+
+## Status
+
+Phases 1 and 2 are complete. Phase 3 (Node-Type Probes and Merge) is
+next — see `PHASE_STATUS.md` for the implementation queue.
+
+## Layout
+
+```
+cluster-inspector/
+  cmd/cluster-inspector/main.go      # entry point; wires cobra dispatch
+  internal/
+    commands/                         # one file per CLI subcommand
+      profile.go probe_system.go probe_node.go merge.go verify.go
+    model/                            # typed structs that mirror profile-v1.json
+      profile.go fragments.go evidence.go validation.go
+    probes/                           # per-fact probe implementations
+      system.go modules.go cray.go compiler.go mpi.go
+      gpu.go fabric.go filesystem.go node.go
+    hints/                            # inspector-hints.yaml parsing + apply
+      schema.go apply.go
+    output/                           # emitters
+      yaml.go json.go human.go
+    resources/                        # embedded resource files (//go:embed)
+      gpu_toolkit_ceilings.yaml
+      rocm_components.yaml
+      module_patterns.yaml
+      profile_schema.json             # copy of profile-v1.json from stack-planning
+  tests/fixtures/                     # golden inputs for tests
+  docs/development.md
+```
+
+## Build and run
+
+```bash
+# Build the binary
+go build -o cluster-inspector ./cmd/cluster-inspector
+
+# Show subcommands
+./cluster-inspector --help
+
+# Test
+go test ./...
+```
+
+## Companion / reference
+
+- **Canonical design + schema:** [`ray12514/stack-planning`](https://github.com/ray12514/stack-planning)
+- **Old Python reference implementation:** [`ray12514/clusterinspector`](https://github.com/ray12514/clusterinspector) — useful for mining probe-logic patterns (fabric detection, module enumeration, GPU detection). Different product shape, working probes.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE).

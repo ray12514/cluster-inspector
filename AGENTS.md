@@ -1,0 +1,147 @@
+# Agent guidance for `cluster-inspector`
+
+This repo is the **Go implementation** of the system-facts probe specified
+in the `stack-planning` planning library. It produces `profile.yaml` files
+that the renderer (`stack-composer`) consumes.
+
+## First things to read
+
+| If you... | Start with |
+|---|---|
+| Need the high-level role and product boundary | `README.md` here, then `stack-planning/docs/cluster_inspector_stack_profile_design_v1.md` |
+| Need to implement a specific profile-field probe | `stack-planning/docs/cluster_inspector_profile_extraction_map_v1.md` |
+| Need to know what a valid `profile.yaml` looks like | `stack-planning/schemas/profile-v1.json` + positive examples under `stack-planning/schemas/.validation/` |
+| Want to mine probe-logic patterns from a working tool | The old Python `clusterinspector` at `github.com/ray12514/clusterinspector`. Clone adjacent to this repo if you'll port from it. |
+
+If `stack-planning` isn't checked out locally, clone it to
+`../stack-planning/` before doing implementation work. Schemas and
+extraction rules live there; do not duplicate them here.
+
+## Dependency philosophy
+
+This is a **Go binary**, not a stdlib-only Go binary. The deployment
+property we care about is "single self-contained binary on the target
+with no language runtime dependency." Go satisfies that regardless of
+what we vendor at build time. So: **prefer well-maintained Go libraries
+over hand-rolling**, but keep the dependency list tight and justified.
+
+Committed runtime dependencies (extend only with a recorded reason):
+
+| Dependency | Used for |
+|---|---|
+| `github.com/spf13/cobra` | CLI multi-command dispatch (profile, probe-system, probe-node, merge, verify) |
+| `gopkg.in/yaml.v3` | YAML read/write; deterministic output via stable key order |
+| `github.com/santhosh-tekuri/jsonschema/v6` | Validate generated and hand-written profiles against `profile-v1.json` |
+| `github.com/stretchr/testify` | `require`/`assert` in tests; clarity over hand-rolled `t.Fatalf` |
+
+Stdlib for everything else: `embed` (resource files), `os/exec`
+(subprocess to system probes), `log/slog` (structured logging),
+`testing`, `encoding/json`, `regexp`. Do not pull in a third-party
+logger, JSON library, or testing framework.
+
+When adding a new dep:
+
+1. Confirm it is **actively maintained** — recent commits, responsive
+   issues, no known unresolved CVEs.
+2. Prefer the canonical/most-used library in the Go ecosystem for that
+   concern over niche alternatives.
+3. Record the addition in this list with a one-line "used for" note.
+4. Run `go mod tidy` and commit `go.mod` + `go.sum` together.
+
+## Shell discipline (load-bearing)
+
+The design doc has a hard rule that probes must use **non-login
+shells**. Any subprocess that invokes a shell:
+
+- Uses `bash -c '<probe>'` — **never** `bash -lc`, `bash --login`,
+  `sh -l`, or anything that sources login startup files.
+- For module verification, starts from a controlled non-login shell,
+  clears or purges module state as needed, loads exactly the candidate
+  modules, then probes. Does not inherit personal shell startup state.
+
+Read `stack-planning/docs/cluster_inspector_stack_profile_design_v1.md`
+§ Shell Invocation Discipline before writing any subprocess code. The
+rule exists because login shells silently swap default programming
+environments on Cray and similar sites, which makes probe output wrong
+in ways that are hard to detect.
+
+## Self-contained runtime
+
+Once built, the binary must run on a target host with **no source
+checkout, no `stack-planning` clone, and no network access**. All
+resource files (the embedded schema, GPU toolkit ceilings, ROCm
+component table, module patterns) live under `internal/resources/` and
+are embedded via `//go:embed` at build time.
+
+The build pipeline copies `profile-v1.json` from a local
+`stack-planning` clone into `internal/resources/profile_schema.json`
+before the build runs. There is no other way the binary obtains the
+schema.
+
+## What NOT to do
+
+- Do not call Spack. The inspector never runs `spack spec`, `spack
+  external find`, `spack config`, `spack concretize`, or `spack
+  install`. Spack may exist on the target, but the inspector does not
+  depend on it.
+- Do not write `packages.yaml`, `spack.yaml`, modulefiles, lockfiles,
+  or release manifests. Those belong to `stack-composer` and Spack
+  itself.
+- Do not generate template trees. `stack-composer scaffold-templates`
+  may consume our profile corpus, but the inspector does not write
+  templates.
+- Do not infer stack intent from system facts. Report `cray-mpich`
+  exists; do not decide that the stack should prefer it.
+- Do not silently fall back to login-shell behavior. If a non-login
+  shell can't probe a fact, emit `unknown` with evidence — do not get
+  the answer "right" by sourcing user dotfiles.
+- Do not duplicate the canonical schema or design content here. Point
+  at `stack-planning`.
+
+## Implementation phase map
+
+The design doc names five phases. Stubs in this repo are marked with
+their target phase so an agent picking up implementation can scan the
+tree and find the right slice:
+
+| Phase | Scope | Code locations |
+|---|---|---|
+| **Phase 1 — Contract and Skeleton** | CLI dispatch, schema models, deterministic YAML output, validation harness for hand-written fixtures | `cmd/cluster-inspector/main.go`, `internal/commands/*.go`, `internal/model/*.go`, `internal/output/*.go`, `internal/resources/profile_schema.json` |
+| **Phase 2 — System-Wide Probes** | OS, glibc, module-tool, fabric, filesystem, compiler, MPI, Cray PE, GPU toolkit probes; evidence capture | `internal/probes/{system,modules,cray,compiler,mpi,gpu,fabric,filesystem}.go` |
+| **Phase 3 — Node-Type Probes And Merge** | CPU target, GPU facts, build-stage candidates; deterministic merge | `internal/probes/node.go`, `internal/commands/{probe_node,merge}.go` |
+| **Phase 4 — Module Hints And Clean-Shell Verification** | Module enumeration, hints schema, include/exclude/extras, clean-shell verification | `internal/hints/*.go`, plus updates to `internal/probes/modules.go` |
+| **Phase 5 — Full Stack Fixtures** | Golden fixtures, `verify` subcommand checks, documentation examples | `tests/fixtures/`, `internal/commands/verify.go` (final form), `docs/` |
+
+Phase 1 is implemented. Later-phase files may still return "not yet
+implemented". Look for `// TODO: Phase N` markers — they tell you which
+slice the body belongs to.
+
+## Build and test
+
+```bash
+# Initial setup
+go mod tidy                                 # fetches the committed dep set
+cp ../stack-planning/schemas/profile-v1.json internal/resources/profile_schema.json
+
+# Build
+go build -o cluster-inspector ./cmd/cluster-inspector
+
+# Run
+./cluster-inspector --help
+
+# Test
+go test ./...
+```
+
+For probes that shell out to system commands, prefer table-driven tests
+where the subprocess output is captured as a fixture under
+`tests/fixtures/` and the probe is unit-tested against the fixture.
+Avoid hitting the real host in unit tests; reserve that for an
+explicit `e2e_test.go` build tag.
+
+## When in doubt
+
+The design doc in `stack-planning` is authoritative. If you're about to
+make a design decision and the doc doesn't cover it, **stop and write
+the doc fix first**, then implement against the fixed doc. Implementing
+ahead of the spec creates drift that's expensive to unwind.

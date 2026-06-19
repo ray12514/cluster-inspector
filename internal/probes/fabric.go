@@ -1,0 +1,128 @@
+package probes
+
+import (
+	"os"
+	"strings"
+
+	"github.com/ray12514/cluster-inspector/internal/model"
+)
+
+// FabricResult contains detected fabric facts.
+type FabricResult struct {
+	Fabric   model.Fabric
+	Evidence map[string]model.Evidence
+}
+
+// ProbeFabric detects the fabric stack: type (slingshot/IB/RoCE/OmniPath/
+// ethernet), generation marker, kernel/userspace drivers, and userspace
+// libraries (libfabric, UCX).
+func ProbeFabric() FabricResult {
+	result := FabricResult{
+		Fabric: model.Fabric{
+			Type:    "ethernet",
+			Drivers: []model.NamedPrefixVersioned{},
+		},
+		Evidence: map[string]model.Evidence{},
+	}
+
+	switch {
+	case hasCXIEvidence():
+		result.Fabric.Type = "slingshot"
+		result.Fabric.Generation = "cxi"
+		appendEvidence(result.Evidence, "fabric.type", evidence(model.ConfidenceProbed, "CXI device evidence"))
+		appendEvidence(result.Evidence, "fabric.generation", evidence(model.ConfidenceProbed, "CXI device evidence"))
+	case hasInfiniBandEvidence():
+		result.Fabric.Type = "infiniband"
+		appendEvidence(result.Evidence, "fabric.type", evidence(model.ConfidenceProbed, "/sys/class/infiniband"))
+	default:
+		appendEvidence(result.Evidence, "fabric.type", evidence(model.ConfidenceInferred, "no CXI/InfiniBand evidence found"))
+	}
+
+	result.Fabric.Drivers = probeFabricDrivers(result.Evidence)
+	result.Fabric.Userspace = probeFabricUserspace(result.Evidence)
+	return result
+}
+
+func hasCXIEvidence() bool {
+	return isDir("/sys/class/cxi") || isDir("/dev/cxi") || firstExistingDir("/opt/cray/pe/cxi") != ""
+}
+
+func hasInfiniBandEvidence() bool {
+	entries, err := os.ReadDir("/sys/class/infiniband")
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") {
+			return true
+		}
+	}
+	return false
+}
+
+func probeFabricDrivers(evidenceMap map[string]model.Evidence) []model.NamedPrefixVersioned {
+	var drivers []model.NamedPrefixVersioned
+	if out, err := run("rpm", "-q", "rdma-core"); err == nil {
+		if version := rpmPackageVersion(out, "rdma-core"); version != "" {
+			drivers = append(drivers, model.NamedPrefixVersioned{Name: "rdma-core", Version: version, Prefix: "/usr"})
+			appendEvidence(evidenceMap, "fabric.drivers.rdma-core", evidence(model.ConfidenceProbed, "rpm -q rdma-core"))
+		}
+	} else if out, err := run("dpkg-query", "-W", "-f=${Version}", "rdma-core"); err == nil && strings.TrimSpace(out) != "" {
+		drivers = append(drivers, model.NamedPrefixVersioned{Name: "rdma-core", Version: strings.TrimSpace(out), Prefix: "/usr"})
+		appendEvidence(evidenceMap, "fabric.drivers.rdma-core", evidence(model.ConfidenceProbed, "dpkg-query rdma-core"))
+	}
+	if isDir("/opt/cray/pe/cxi") {
+		version := latestChildVersion("/opt/cray/pe/cxi")
+		if version == "" {
+			version = "unknown"
+		}
+		drivers = append(drivers, model.NamedPrefixVersioned{Name: "cxi", Version: version, Prefix: "/opt/cray/pe/cxi"})
+		appendEvidence(evidenceMap, "fabric.drivers.cxi", evidence(model.ConfidenceProbed, "/opt/cray/pe/cxi"))
+	}
+	return drivers
+}
+
+func probeFabricUserspace(evidenceMap map[string]model.Evidence) []model.NamedPrefixVersioned {
+	var userspace []model.NamedPrefixVersioned
+	if path := commandPath("fi_info"); path != "" {
+		version := ""
+		if out, err := run("fi_info", "--version"); err == nil {
+			version = firstVersion(out)
+		}
+		if version != "" {
+			userspace = append(userspace, model.NamedPrefixVersioned{Name: "libfabric", Version: version, Prefix: prefixFromCommand(path)})
+			appendEvidence(evidenceMap, "fabric.userspace.libfabric", evidence(model.ConfidenceProbed, "fi_info --version"))
+		}
+	}
+	if path := commandPath("ucx_info"); path != "" {
+		version := ""
+		if out, err := run("ucx_info", "-v"); err == nil {
+			version = firstVersion(out)
+		}
+		if version != "" {
+			userspace = append(userspace, model.NamedPrefixVersioned{Name: "ucx", Version: version, Prefix: prefixFromCommand(path)})
+			appendEvidence(evidenceMap, "fabric.userspace.ucx", evidence(model.ConfidenceProbed, "ucx_info -v"))
+		}
+	}
+	return userspace
+}
+
+func rpmPackageVersion(out, name string) string {
+	out = strings.TrimSpace(out)
+	out = strings.TrimPrefix(out, name+"-")
+	return firstVersion(out)
+}
+
+func latestChildVersion(path string) string {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return ""
+	}
+	best := ""
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() > best {
+			best = entry.Name()
+		}
+	}
+	return best
+}
