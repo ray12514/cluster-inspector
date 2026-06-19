@@ -23,7 +23,7 @@ func TestDeriveSystemFamily(t *testing.T) {
 		{"centos 7 (rhel-compat)", "centos", 7, false, "linux-rhel7"},
 		{"sles 15", "sles", 15, false, "linux-sles"},
 		{"ubuntu", "ubuntu", 22, false, "linux-ubuntu"},
-		{"unknown distro gets generic linux-<x>", "exoticos", 0, false, "linux-exoticos"},
+		{"unknown distro gets generic linux-<x>", "exotic", 0, false, "linux-exotic"},
 		{"empty os yields empty family", "", 0, false, ""},
 	}
 	for _, tc := range cases {

@@ -54,12 +54,10 @@ Acceptance per design doc:
 - [x] Table-driven parser tests landed for system / modules / cray / fabric / mpi / gpu / compiler / helpers (run via `go test ./...`); evidence on real Linux + Cray hosts still depends on running the binary there (deferred to the test cluster)
 
 **Note on the `profile` all-in-one command.** `cluster-inspector profile`
-still emits the Phase 1 minimal local skeleton (hard-coded placeholder
-facts in `commands.buildLocalSkeletonProfile`). It does **not** call the
-Phase 2 probes — by design, the cross-over happens in Phase 3 when
-`merge` ties `probe-system` + `probe-node` outputs together. Until then,
-use `probe-system` to exercise the real Phase 2 probes; `profile`
-remains the documented skeleton entrypoint.
+now runs the same real Phase 3 pipeline as the lower-level commands:
+`probe-system`, one `probe-node` per requested node type, deterministic
+`merge`, and schema validation. The Phase 1 skeleton remains historical
+only.
 
 ## Phase 3 — Node-Type Probes and Merge
 
@@ -68,10 +66,11 @@ Acceptance per design doc:
 - Two GPU node types with different arch labels merge without duplication.
 - Re-running merge on the same fragments produces byte-identical YAML.
 
-- [ ] `internal/probes/node.go` — CPU target, GPU facts per-node, build-stage candidates
-- [ ] `internal/commands/probe_node.go` — `this:` / `srun:` / `pbsdsh:` runners
-- [ ] `internal/commands/merge.go` — deterministic merge of system + node fragments
-- [ ] Byte-identical re-merge test
+- [x] `internal/probes/node.go` — CPU target, GPU facts per-node, build-stage candidates
+- [x] `internal/commands/probe_node.go` — `this:` / `srun:` / `pbsdsh:` runners
+- [x] `internal/commands/merge.go` — deterministic merge of system + node fragments
+- [x] `internal/commands/profile.go` — all-in-one profile orchestration uses real fragments
+- [x] Byte-identical re-merge test
 
 ## Phase 4 — Module Hints and Clean-Shell Verification
 
