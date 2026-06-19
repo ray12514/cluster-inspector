@@ -61,7 +61,10 @@ func hasInfiniBandEvidence() bool {
 }
 
 func probeFabricDrivers(evidenceMap map[string]model.Evidence) []model.NamedPrefixVersioned {
-	var drivers []model.NamedPrefixVersioned
+	// Always return a non-nil slice so the schema's `type: array`
+	// constraint passes even when nothing is detected. yaml.v3 emits a
+	// nil slice as `null`, which the schema rejects.
+	drivers := make([]model.NamedPrefixVersioned, 0)
 	if out, err := run("rpm", "-q", "rdma-core"); err == nil {
 		if version := rpmPackageVersion(out, "rdma-core"); version != "" {
 			drivers = append(drivers, model.NamedPrefixVersioned{Name: "rdma-core", Version: version, Prefix: "/usr"})
@@ -83,7 +86,8 @@ func probeFabricDrivers(evidenceMap map[string]model.Evidence) []model.NamedPref
 }
 
 func probeFabricUserspace(evidenceMap map[string]model.Evidence) []model.NamedPrefixVersioned {
-	var userspace []model.NamedPrefixVersioned
+	// Non-nil even when empty (see probeFabricDrivers).
+	userspace := make([]model.NamedPrefixVersioned, 0)
 	if path := commandPath("fi_info"); path != "" {
 		version := ""
 		if out, err := run("fi_info", "--version"); err == nil {

@@ -64,6 +64,53 @@ func TestMergeFragmentsOutputIsByteIdentical(t *testing.T) {
 	}
 }
 
+// TestMergeRoundTripIsByteIdentical is the design-doc-strict version of
+// the determinism acceptance: re-running the FULL merge → write pipeline
+// on the same fragments must produce byte-identical YAML. Catches any
+// future regression where mergeFragments grows non-deterministic
+// behaviour (e.g., unsorted map iteration that escapes into the output).
+func TestMergeRoundTripIsByteIdentical(t *testing.T) {
+	systemFragment := minimalSystemFragment()
+	nodeFragments := []model.NodeFragment{
+		minimalNodeFragment("login", "build_host", nil),
+		minimalNodeFragment("cpu_compute", "runtime", nil),
+		minimalNodeFragment("gpu_compute_mi250x", "runtime", &model.GPUBlock{
+			Vendor:         "amd",
+			DriverVersion:  "6.0",
+			ToolkitCeiling: "6.0.0",
+			ArchTarget:     "gfx90a",
+		}),
+		minimalNodeFragment("gpu_compute_mi300a", "runtime", &model.GPUBlock{
+			Vendor:         "amd",
+			DriverVersion:  "6.1",
+			ToolkitCeiling: "6.1.0",
+			ArchTarget:     "gfx942",
+		}),
+	}
+
+	render := func() []byte {
+		t.Helper()
+		profile, err := mergeFragments(systemFragment, nodeFragments)
+		if err != nil {
+			t.Fatalf("mergeFragments: %v", err)
+		}
+		var buf bytes.Buffer
+		if err := output.WriteProfile(&buf, profile); err != nil {
+			t.Fatalf("WriteProfile: %v", err)
+		}
+		return buf.Bytes()
+	}
+
+	first := render()
+	for i := 0; i < 5; i++ {
+		again := render()
+		if !bytes.Equal(first, again) {
+			t.Fatalf("merge round-trip %d differs from initial:\n--- first ---\n%s\n--- again ---\n%s",
+				i+1, first, again)
+		}
+	}
+}
+
 func TestMergeFragmentsRejectsDuplicateNodeType(t *testing.T) {
 	_, err := mergeFragments(minimalSystemFragment(), []model.NodeFragment{
 		minimalNodeFragment("login", "build_host", nil),

@@ -37,9 +37,10 @@ type modulePatternFile struct {
 }
 
 // ProbeModules detects the module tool (Lmod vs Tcl) and enumerates
-// MODULEPATH plus available modules.
-//
-// TODO: Phase 4 — add hints filtering and clean-shell verification.
+// MODULEPATH plus available modules. Hints filtering lives in
+// applyModulePolicy; clean-shell load-and-verify lives in
+// verifyModules — both are called from per-category probes
+// (ProbeCrayPEWithModules, ProbeCompilersExternalWithModules, etc.).
 func ProbeModules() ModulesResult {
 	result := ModulesResult{
 		ModulePaths: envList("MODULEPATH"),

@@ -21,6 +21,13 @@ type FilesystemResult struct {
 // buildcache candidates. Checks lock honoring via flock probe.
 func ProbeFilesystem() FilesystemResult {
 	result := FilesystemResult{
+		// Non-nil so yaml.v3 emits an empty array, not `null`. The
+		// schema requires `install_tree_candidates` to be an array.
+		// minItems is enforced separately at render time; here we just
+		// guarantee the shape.
+		Filesystem: model.Filesystem{
+			InstallTreeCandidates: make([]model.InstallTreeCandidate, 0),
+		},
 		Evidence: map[string]model.Evidence{},
 	}
 
