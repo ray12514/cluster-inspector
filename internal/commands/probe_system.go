@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
 	"github.com/ray12514/cluster-inspector/internal/output"
 	"github.com/ray12514/cluster-inspector/internal/probes"
@@ -30,8 +31,11 @@ modules, install-tree candidates) and emits a system fragment that can be
 merged with per-node fragments by the merge command.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = hintsPath
-			fragment := buildSystemFragment(systemName)
+			hints, err := loadHints(hintsPath)
+			if err != nil {
+				return err
+			}
+			fragment := buildSystemFragment(systemName, hints)
 			return writeSystemFragmentOutput(cmd, outputPath, fragment)
 		},
 	}
@@ -41,14 +45,14 @@ merged with per-node fragments by the merge command.`,
 	return cmd
 }
 
-func buildSystemFragment(systemName string) *model.SystemFragment {
+func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.SystemFragment {
 	system := probes.ProbeSystem(systemName)
 	modules := probes.ProbeModules()
 	fabric := probes.ProbeFabric()
-	cray := probes.ProbeCrayPE()
-	compilers := probes.ProbeCompilersExternal()
-	mpi := probes.ProbeMPI()
-	gpuToolkits := probes.ProbeGPUToolkitModules()
+	cray := probes.ProbeCrayPEWithModules(modules.Candidates, hints)
+	compilers := probes.ProbeCompilersExternalWithModules(modules.Candidates, hints)
+	mpi := probes.ProbeMPIWithModules(modules.Candidates, hints)
+	gpuToolkits := probes.ProbeGPUToolkitModulesWithModules(modules.Candidates, hints)
 	filesystem := probes.ProbeFilesystem()
 
 	evidence := map[string]model.Evidence{}
@@ -75,6 +79,13 @@ func buildSystemFragment(systemName string) *model.SystemFragment {
 		ModulePaths:       modules.ModulePaths,
 		Evidence:          evidence,
 	}
+}
+
+func loadHints(path string) (*inspectorhints.Hints, error) {
+	if path == "" {
+		return nil, nil
+	}
+	return inspectorhints.LoadFile(path)
 }
 
 func mergeEvidence(dst map[string]model.Evidence, src map[string]model.Evidence) {

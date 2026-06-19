@@ -1,0 +1,36 @@
+schema_version: 1
+
+categories:
+  compiler:
+    - PrgEnv-*
+    - cce/*
+    - gcc/*
+    - gcc-native/*
+    - aocc/*
+    - amd/*
+    - intel/*
+    - oneapi/*
+    - nvhpc/*
+    - rocmcc/*
+  mpi:
+    - cray-mpich/*
+    - openmpi/*
+    - mpich/*
+    - mvapich/*
+    - mvapich2/*
+    - intel-mpi/*
+    - impi/*
+  gpu_toolkit:
+    - rocm/*
+    - cuda/*
+    - cudatoolkit/*
+    - nvhpc/*
+  fabric_userspace:
+    - libfabric/*
+    - ucx/*
+    - cxi/*
+  cray_pe:
+    - PrgEnv-*
+    - craype-*
+    - cray-mpich/*
+    - cray-libsci/*

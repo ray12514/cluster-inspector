@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
 	"github.com/ray12514/cluster-inspector/internal/output"
 	"github.com/spf13/cobra"
@@ -33,8 +34,11 @@ through srun, or through pbsdsh), and merges the fragments into a single
 profile.yaml.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = hintsPath
-			profile, err := buildProbedProfile(systemName, nodeTypeSpecs)
+			hints, err := loadHints(hintsPath)
+			if err != nil {
+				return err
+			}
+			profile, err := buildProbedProfile(systemName, nodeTypeSpecs, hints)
 			if err != nil {
 				return err
 			}
@@ -58,7 +62,7 @@ type profileNodeTypeSpec struct {
 	Runner      nodeRunner
 }
 
-func buildProbedProfile(systemName string, nodeTypeSpecs []string) (*model.Profile, error) {
+func buildProbedProfile(systemName string, nodeTypeSpecs []string, hints *inspectorhints.Hints) (*model.Profile, error) {
 	if systemName == "" {
 		return nil, fmt.Errorf("profile requires --system")
 	}
@@ -70,7 +74,7 @@ func buildProbedProfile(systemName string, nodeTypeSpecs []string) (*model.Profi
 	if err != nil {
 		return nil, err
 	}
-	systemFragment := buildSystemFragment(systemName)
+	systemFragment := buildSystemFragment(systemName, hints)
 	nodeFragments := make([]model.NodeFragment, 0, len(parsedSpecs))
 	for _, spec := range parsedSpecs {
 		fragment, err := probeProfileNodeType(spec)

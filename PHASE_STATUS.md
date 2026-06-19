@@ -79,11 +79,11 @@ Acceptance per design doc:
 - Cray PE compiler and Cray MPICH modules verified with modules + prefixes.
 - ROCm toolkit modules produce component external facts, not only `rocm/<v>`.
 
-- [ ] `internal/hints/schema.go` — `inspector-hints.yaml` shape
-- [ ] `internal/hints/apply.go` — include/exclude/extras semantics
-- [ ] Module enumeration + classification (extends `internal/probes/modules.go`)
-- [ ] Clean-shell verification of each candidate (controlled non-login shell, see AGENTS.md § Shell discipline)
-- [ ] Diagnostics for ambiguous/rejected/failed candidates
+- [x] `internal/hints/schema.go` — `inspector-hints.yaml` shape
+- [x] `internal/hints/apply.go` — include/exclude/extras semantics
+- [x] Module enumeration + classification (extends `internal/probes/modules.go`)
+- [x] Clean-shell verification of each candidate (controlled non-login shell, see AGENTS.md § Shell discipline)
+- [x] Diagnostics for ambiguous/rejected/failed candidates
 
 ## Phase 5 — Full Stack Fixtures
 

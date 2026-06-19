@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
 
@@ -39,6 +40,12 @@ func ProbeGPU() GPUResult {
 
 // ProbeGPUToolkitModules discovers standalone ROCm/CUDA/NVHPC toolkit facts.
 func ProbeGPUToolkitModules() GPUToolkitModulesResult {
+	return ProbeGPUToolkitModulesWithModules(nil, nil)
+}
+
+// ProbeGPUToolkitModulesWithModules discovers standalone GPU toolkit facts
+// from the active environment and verified module candidates.
+func ProbeGPUToolkitModulesWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hints) GPUToolkitModulesResult {
 	result := GPUToolkitModulesResult{
 		Toolkits: &model.GPUToolkitModules{},
 		Evidence: map[string]model.Evidence{},
@@ -53,6 +60,8 @@ func ProbeGPUToolkitModules() GPUToolkitModulesResult {
 	if nvhpc := probeNvhpcToolkit(result.Evidence); nvhpc != nil {
 		result.Toolkits.NVHPC = nvhpc
 	}
+	applyVerifiedGPUToolkitModules(result.Toolkits, candidates, hints, result.Evidence)
+	applyGPUToolkitExtras(result.Toolkits, hints, result.Evidence)
 	if result.Toolkits.ROCm == nil && result.Toolkits.CUDAToolkit == nil && result.Toolkits.NVHPC == nil {
 		appendEvidence(result.Evidence, "gpu_toolkit_modules", evidence(model.ConfidenceUnknown, "no standalone GPU toolkit evidence found"))
 		return GPUToolkitModulesResult{Evidence: result.Evidence}
@@ -158,14 +167,10 @@ func probeROCmToolkit(evidenceMap map[string]model.Evidence) *model.ROCmToolkitM
 	}
 	appendEvidence(evidenceMap, "gpu_toolkit_modules.rocm", evidence(model.ConfidenceProbed, "ROCM_PATH/hipcc"))
 	return &model.ROCmToolkitModule{
-		Version: version,
-		Module:  "rocm/" + version,
-		Prefix:  prefix,
-		SpackComponents: []model.SpackComponent{
-			{Package: "hip", Prefix: prefix},
-			{Package: "hsa-rocr-dev", Prefix: prefix},
-			{Package: "llvm-amdgpu", Prefix: prefix},
-		},
+		Version:         version,
+		Module:          "rocm/" + version,
+		Prefix:          prefix,
+		SpackComponents: rocmSpackComponents(prefix),
 	}
 }
 
@@ -231,4 +236,152 @@ func filepathJoin(elem ...string) string {
 		}
 	}
 	return filepath.Join(elem...)
+}
+
+func applyVerifiedGPUToolkitModules(toolkits *model.GPUToolkitModules, candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) {
+	moduleHints := inspectorhints.ModuleHints{}
+	if hints != nil {
+		moduleHints = hints.GPUToolkits
+	}
+	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "gpu_toolkit"), moduleHints, nil, evidenceMap, "gpu_toolkit_modules.module_hints")
+	for _, module := range accepted {
+		name := gpuToolkitNameFromModule(module)
+		if name == "" {
+			continue
+		}
+		verification, err := verifyModules([]string{module})
+		if err != nil {
+			appendVerificationFailure(evidenceMap, "gpu_toolkit_modules.verify_failed."+module, []string{module}, err)
+			continue
+		}
+		switch name {
+		case "rocm":
+			rocm, ok := rocmToolkitFromVerification(module, verification)
+			if !ok {
+				appendEvidence(evidenceMap, "gpu_toolkit_modules.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but ROCm prefix unavailable"))
+				continue
+			}
+			toolkits.ROCm = rocm
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.rocm", evidence(model.ConfidenceProbed, "clean-shell module verification"))
+		case "cudatoolkit":
+			cuda, ok := cudaToolkitFromVerification(module, verification)
+			if !ok {
+				appendEvidence(evidenceMap, "gpu_toolkit_modules.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but CUDA prefix unavailable"))
+				continue
+			}
+			toolkits.CUDAToolkit = cuda
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.cudatoolkit", evidence(model.ConfidenceProbed, "clean-shell module verification"))
+		case "nvhpc":
+			nvhpc, ok := nvhpcToolkitFromVerification(module, verification)
+			if !ok {
+				appendEvidence(evidenceMap, "gpu_toolkit_modules.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but NVHPC prefix unavailable"))
+				continue
+			}
+			toolkits.NVHPC = nvhpc
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.nvhpc", evidence(model.ConfidenceProbed, "clean-shell module verification"))
+		}
+	}
+}
+
+func applyGPUToolkitExtras(toolkits *model.GPUToolkitModules, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) {
+	if hints == nil {
+		return
+	}
+	for _, extra := range hints.Extras.GPUToolkits {
+		switch strings.ToLower(extra.Name) {
+		case "rocm":
+			components := make([]model.SpackComponent, 0, len(extra.SpackComponents))
+			for _, component := range extra.SpackComponents {
+				components = append(components, model.SpackComponent{Package: component.Package, Prefix: component.Prefix})
+			}
+			if len(components) == 0 {
+				components = rocmSpackComponents(extra.Prefix)
+			}
+			toolkits.ROCm = &model.ROCmToolkitModule{Version: extra.Version, Module: extra.Module, Prefix: extra.Prefix, SpackComponents: components}
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.rocm", evidence(model.ConfidenceInferred, "inspector-hints extras"))
+		case "cuda", "cudatoolkit":
+			toolkits.CUDAToolkit = &model.CUDAToolkitModule{Version: extra.Version, Module: extra.Module, Prefix: extra.Prefix}
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.cudatoolkit", evidence(model.ConfidenceInferred, "inspector-hints extras"))
+		case "nvhpc":
+			toolkits.NVHPC = &model.NvhpcToolkitModule{Version: extra.Version, Module: extra.Module, Prefix: extra.Prefix}
+			appendEvidence(evidenceMap, "gpu_toolkit_modules.nvhpc", evidence(model.ConfidenceInferred, "inspector-hints extras"))
+		}
+	}
+}
+
+func gpuToolkitNameFromModule(module string) string {
+	lower := strings.ToLower(module)
+	switch {
+	case strings.HasPrefix(lower, "rocm/"):
+		return "rocm"
+	case strings.HasPrefix(lower, "cuda/") || strings.HasPrefix(lower, "cudatoolkit/"):
+		return "cudatoolkit"
+	case strings.HasPrefix(lower, "nvhpc/"):
+		return "nvhpc"
+	default:
+		return ""
+	}
+}
+
+func rocmToolkitFromVerification(module string, verification moduleVerification) (*model.ROCmToolkitModule, bool) {
+	prefix := firstNonEmptyString(verification.Env["ROCM_PATH"], prefixFromCommand(verification.Commands["hipcc"]))
+	if prefix == "" {
+		return nil, false
+	}
+	version := moduleVersion(module)
+	if version == "" {
+		version = firstVersion(prefix)
+	}
+	if version == "" {
+		version = "unknown"
+	}
+	return &model.ROCmToolkitModule{
+		Version:         version,
+		Module:          module,
+		Prefix:          prefix,
+		SpackComponents: rocmSpackComponents(prefix),
+	}, true
+}
+
+func cudaToolkitFromVerification(module string, verification moduleVerification) (*model.CUDAToolkitModule, bool) {
+	prefix := firstNonEmptyString(verification.Env["CUDA_HOME"], verification.Env["CUDA_PATH"], prefixFromCommand(verification.Commands["nvcc"]))
+	if prefix == "" {
+		return nil, false
+	}
+	version := moduleVersion(module)
+	if version == "" {
+		version = firstVersion(prefix)
+	}
+	if version == "" {
+		version = "unknown"
+	}
+	return &model.CUDAToolkitModule{Version: version, Module: module, Prefix: prefix}, true
+}
+
+func nvhpcToolkitFromVerification(module string, verification moduleVerification) (*model.NvhpcToolkitModule, bool) {
+	prefix := firstNonEmptyString(verification.Env["NVHPC_ROOT"], prefixFromCommand(verification.Commands["nvc"]))
+	if prefix == "" {
+		return nil, false
+	}
+	version := moduleVersion(module)
+	if version == "" {
+		version = firstVersion(prefix)
+	}
+	if version == "" {
+		version = "unknown"
+	}
+	return &model.NvhpcToolkitModule{Version: version, Module: module, Prefix: prefix}, true
+}
+
+func rocmSpackComponents(prefix string) []model.SpackComponent {
+	return []model.SpackComponent{
+		{Package: "hip", Prefix: filepath.Join(prefix, "hip")},
+		{Package: "hsa-rocr-dev", Prefix: prefix},
+		{Package: "comgr", Prefix: prefix},
+		{Package: "rocblas", Prefix: prefix},
+		{Package: "hipblas", Prefix: prefix},
+		{Package: "hipsparse", Prefix: prefix},
+		{Package: "rocprim", Prefix: filepath.Join(prefix, "rocprim")},
+		{Package: "llvm-amdgpu", Prefix: prefix},
+	}
 }

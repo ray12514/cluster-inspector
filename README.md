@@ -15,8 +15,8 @@ implementation or open a doc fix first.
 
 ## Status
 
-Phases 1 through 3 are complete. Phase 4 (Module Hints and Clean-Shell
-Verification) is next — see `PHASE_STATUS.md` for the implementation queue.
+Phases 1 through 4 are complete. Phase 5 (Full Stack Fixtures) is next —
+see `PHASE_STATUS.md` for the implementation queue.
 
 ## Layout
 
