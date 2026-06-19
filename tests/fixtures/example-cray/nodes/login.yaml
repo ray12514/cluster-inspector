@@ -1,0 +1,13 @@
+name: login
+role: build_host
+description: "Cray login node; shared workspace, no GPU"
+cpu:
+  detected: zen2
+  preferred: zen2
+  alternates: []
+gpu: null
+build_stage:
+  - path: $tempdir/$user/spack-stage
+    visibility: shared
+    writable: true
+    throughput_class: medium

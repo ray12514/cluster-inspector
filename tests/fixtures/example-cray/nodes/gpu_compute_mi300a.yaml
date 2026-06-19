@@ -1,0 +1,16 @@
+name: gpu_compute_mi300a
+role: runtime
+description: "GPU compute, MI300A (gfx942), Zen4 host"
+cpu:
+  detected: zen4
+  preferred: zen4
+gpu:
+  vendor: amd
+  driver_version: "6.1"
+  toolkit_ceiling: "6.1.0"
+  arch_target: gfx942
+build_stage:
+  - path: /local_scratch/$user/spack-stage
+    visibility: compute-only
+    writable: true
+    throughput_class: fast

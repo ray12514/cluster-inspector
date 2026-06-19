@@ -1,0 +1,17 @@
+name: gpu_compute_mi250x
+role: runtime
+description: "GPU compute, MI250X (gfx90a), Zen3 host"
+cpu:
+  detected: zen3
+  preferred: zen3
+gpu:
+  vendor: amd
+  driver_version: "6.0"
+  toolkit_ceiling: "6.0.0"
+  arch_target: gfx90a
+  cuda_compat_available: false
+build_stage:
+  - path: /local_scratch/$user/spack-stage
+    visibility: compute-only
+    writable: true
+    throughput_class: fast

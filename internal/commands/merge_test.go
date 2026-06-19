@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 
 	"github.com/ray12514/cluster-inspector/internal/model"
@@ -118,6 +119,50 @@ func TestMergeFragmentsRejectsDuplicateNodeType(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected duplicate node fragment error")
+	}
+}
+
+func TestFixtureFragmentsMergeAndValidate(t *testing.T) {
+	cases := []struct {
+		name  string
+		nodes []string
+	}{
+		{
+			name:  "example-cray",
+			nodes: []string{"login", "cpu_compute", "gpu_compute_mi250x", "gpu_compute_mi300a"},
+		},
+		{
+			name:  "example-linux",
+			nodes: []string{"login", "cpu_compute", "gpu_compute_mi250x", "gpu_compute_h100"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := fixtureDirPath(t, tc.name)
+			systemFragment, err := readSystemFragment(filepath.Join(dir, "system.yaml"))
+			if err != nil {
+				t.Fatalf("readSystemFragment: %v", err)
+			}
+			nodeFragments := make([]model.NodeFragment, 0, len(tc.nodes))
+			for _, node := range tc.nodes {
+				fragment, err := readNodeFragment(filepath.Join(dir, "nodes", node+".yaml"))
+				if err != nil {
+					t.Fatalf("readNodeFragment(%s): %v", node, err)
+				}
+				nodeFragments = append(nodeFragments, fragment)
+			}
+			profile, err := mergeFragments(systemFragment, nodeFragments)
+			if err != nil {
+				t.Fatalf("mergeFragments: %v", err)
+			}
+			if err := model.ValidateProfile(profile); err != nil {
+				t.Fatalf("ValidateProfile: %v", err)
+			}
+			if errs := validateProfileSemantics(profile); len(errs) > 0 {
+				t.Fatalf("validateProfileSemantics: %v", errs)
+			}
+		})
 	}
 }
 

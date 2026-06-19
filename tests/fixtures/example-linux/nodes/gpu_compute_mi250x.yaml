@@ -1,0 +1,16 @@
+name: gpu_compute_mi250x
+role: runtime
+description: "AMD GPU compute nodes"
+cpu:
+  detected: x86_64_v3
+  preferred: x86_64_v3
+gpu:
+  vendor: amd
+  driver_version: "6.0"
+  toolkit_ceiling: "6.0.0"
+  arch_target: gfx90a
+build_stage:
+  - path: /local_scratch/$user/spack-stage
+    visibility: compute-only
+    writable: true
+    throughput_class: fast

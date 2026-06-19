@@ -1,0 +1,154 @@
+schema_version: 1
+system:
+  name: example-linux
+  family: linux-rhel9
+  description: Generic Linux HPC with TCL modules, site MPI, and GPU toolkits
+os:
+  name: rocky
+  major: 9
+  minor: 3
+  glibc: "2.34"
+fabric:
+  type: ethernet
+  drivers:
+    - name: rdma-core
+      version: "61.0"
+      prefix: /usr
+  userspace:
+    - name: libfabric
+      version: 2.3.1
+      prefix: /usr
+    - name: ucx
+      version: 1.19.1
+      prefix: /usr
+modules_system:
+  tool: tcl
+vendor_cray: null
+compilers_external:
+  - name: aocc
+    version: "4.2"
+    prefix: /opt/ci/aocc-4.2
+    modules:
+      - aocc/4.2
+    languages:
+      - c
+      - c++
+      - fortran
+mpi:
+  - name: openmpi
+    provenance: site
+    version: 5.0.9
+    prefix: /opt/ci/openmpi-5.0.9
+    compiler: aocc@4.2
+    modules:
+      - openmpi/5.0.9
+gpu_toolkit_modules:
+  rocm:
+    version: 6.0.0
+    module: rocm/6.0.0
+    prefix: /opt/ci/rocm-6.0.0
+    spack_components:
+      - package: hip
+        prefix: /opt/ci/rocm-6.0.0/hip
+      - package: hsa-rocr-dev
+        prefix: /opt/ci/rocm-6.0.0
+      - package: comgr
+        prefix: /opt/ci/rocm-6.0.0
+      - package: rocblas
+        prefix: /opt/ci/rocm-6.0.0
+      - package: hipblas
+        prefix: /opt/ci/rocm-6.0.0
+      - package: hipsparse
+        prefix: /opt/ci/rocm-6.0.0
+      - package: rocprim
+        prefix: /opt/ci/rocm-6.0.0/rocprim
+      - package: llvm-amdgpu
+        prefix: /opt/ci/rocm-6.0.0
+  cudatoolkit:
+    version: "12.4"
+    module: cudatoolkit/12.4
+    prefix: /opt/ci/cuda-12.4
+  nvhpc:
+    version: "24.3"
+    module: nvhpc/24.3
+    prefix: /opt/ci/nvhpc-24.3
+filesystem:
+  install_tree_candidates:
+    - path: /opt/spack/opt
+      type: overlay
+      locks_honored: true
+      free_gb: 500
+  source_cache_candidate: /opt/spack/source-cache
+  buildcache_candidate: /opt/buildcache
+node_types:
+  cpu_compute:
+    role: runtime
+    description: CPU compute nodes
+    cpu:
+      detected: x86_64_v3
+      preferred: x86_64_v3
+      alternates:
+        - x86_64_v2
+        - x86_64
+    gpu: null
+    build_stage:
+      - path: /local_scratch/$user/spack-stage
+        visibility: compute-only
+        writable: true
+        free_gb: 500
+        free_inodes: 1000000
+        mount_opts:
+          - rw
+        throughput_class: fast
+  gpu_compute_h100:
+    role: runtime
+    description: NVIDIA GPU compute nodes
+    cpu:
+      detected: x86_64_v4
+      preferred: x86_64_v4
+      alternates:
+        - x86_64_v3
+        - x86_64_v2
+        - x86_64
+    gpu:
+      vendor: nvidia
+      driver_version: "550.54"
+      toolkit_ceiling: "12.4"
+      arch_target: sm_90
+      cuda_compat_available: true
+    build_stage:
+      - path: /local_scratch/$user/spack-stage
+        visibility: compute-only
+        writable: true
+        throughput_class: fast
+  gpu_compute_mi250x:
+    role: runtime
+    description: AMD GPU compute nodes
+    cpu:
+      detected: x86_64_v3
+      preferred: x86_64_v3
+    gpu:
+      vendor: amd
+      driver_version: "6.0"
+      toolkit_ceiling: 6.0.0
+      arch_target: gfx90a
+    build_stage:
+      - path: /local_scratch/$user/spack-stage
+        visibility: compute-only
+        writable: true
+        throughput_class: fast
+  login:
+    role: build_host
+    description: Linux login/build node
+    cpu:
+      detected: x86_64_v3
+      preferred: x86_64_v3
+      alternates:
+        - x86_64_v2
+        - x86_64
+    gpu: null
+    build_stage:
+      - path: /tmp/$user/spack-stage
+        visibility: node-local
+        writable: true
+        throughput_class: unknown

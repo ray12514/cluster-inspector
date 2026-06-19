@@ -92,11 +92,11 @@ Acceptance per design doc:
 - `example-linux` fixture validates with site MPI and optional Spack-built MPI capability inputs.
 - Render-time required profile facts are present for the v6 stack examples.
 
-- [ ] `tests/fixtures/example-cray/` — golden profile + node fragments
-- [ ] `tests/fixtures/example-linux/` — golden profile + node fragments
-- [ ] `internal/commands/verify.go` — full v6 schema + semantic checks (final form)
-- [ ] `docs/probe-reference.md` — per-probe usage + caveats
-- [ ] `docs/profile-schema.md` — link/mirror of profile-v1.json reference
+- [x] `tests/fixtures/example-cray/` — golden profile + node fragments
+- [x] `tests/fixtures/example-linux/` — golden profile + node fragments
+- [x] `internal/commands/verify.go` — full v6 schema + semantic checks (final form)
+- [x] `docs/probe-reference.md` — per-probe usage + caveats
+- [x] `docs/profile-schema.md` — link/mirror of profile-v1.json reference
 
 ## Notes for an agent picking up work
 

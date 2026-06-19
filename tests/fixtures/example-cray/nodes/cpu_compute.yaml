@@ -1,0 +1,19 @@
+name: cpu_compute
+role: runtime
+description: "CPU compute partition, Zen3"
+cpu:
+  detected: zen3
+  preferred: zen3
+  alternates: [zen2]
+gpu: null
+build_stage:
+  - path: /local_scratch/$user/spack-stage
+    visibility: compute-only
+    writable: true
+    free_gb: 800
+    free_inodes: 10000000
+    mount_opts: [rw]
+    throughput_class: fast
+  - path: $tempdir/$user/spack-stage
+    visibility: compute-only
+    writable: true

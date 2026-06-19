@@ -1,0 +1,16 @@
+name: cpu_compute
+role: runtime
+description: "CPU compute nodes"
+cpu:
+  detected: x86_64_v3
+  preferred: x86_64_v3
+  alternates: [x86_64_v2, x86_64]
+gpu: null
+build_stage:
+  - path: /local_scratch/$user/spack-stage
+    visibility: compute-only
+    writable: true
+    free_gb: 500
+    free_inodes: 1000000
+    mount_opts: [rw]
+    throughput_class: fast

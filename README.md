@@ -15,8 +15,8 @@ implementation or open a doc fix first.
 
 ## Status
 
-Phases 1 through 4 are complete. Phase 5 (Full Stack Fixtures) is next —
-see `PHASE_STATUS.md` for the implementation queue.
+Phases 1 through 5 are complete. The repo now has tracked full-stack
+fixtures, semantic profile verification, and probe/schema reference docs.
 
 ## Layout
 

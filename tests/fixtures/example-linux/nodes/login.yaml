@@ -1,0 +1,13 @@
+name: login
+role: build_host
+description: "Linux login/build node"
+cpu:
+  detected: x86_64_v3
+  preferred: x86_64_v3
+  alternates: [x86_64_v2, x86_64]
+gpu: null
+build_stage:
+  - path: /tmp/$user/spack-stage
+    visibility: node-local
+    writable: true
+    throughput_class: unknown

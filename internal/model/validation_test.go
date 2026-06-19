@@ -54,20 +54,20 @@ func loadYAMLAsJSON(t *testing.T, path string) any {
 	return decoded
 }
 
-// TestExampleCrayFixtureValidates exercises Phase 1 acceptance criterion
-// #1: "A hand-written fixture profile validates." The fixture is a
-// verbatim copy of stack-planning's canonical example-cray.yaml, which
-// is itself derived from the v6 design doc's reference profile.
-func TestExampleCrayFixtureValidates(t *testing.T) {
-	fixture := filepath.Join(fixturesDir(t), "example-cray", "profile.yaml")
-	instance := loadYAMLAsJSON(t, fixture)
-
+func TestProfileFixturesValidate(t *testing.T) {
 	schema, err := model.CompileProfileSchema()
 	if err != nil {
 		t.Fatalf("compile embedded schema: %v", err)
 	}
-	if err := schema.Validate(instance); err != nil {
-		t.Fatalf("example-cray fixture failed schema validation: %v", err)
+
+	for _, name := range []string{"example-cray", "example-linux"} {
+		t.Run(name, func(t *testing.T) {
+			fixture := filepath.Join(fixturesDir(t), name, "profile.yaml")
+			instance := loadYAMLAsJSON(t, fixture)
+			if err := schema.Validate(instance); err != nil {
+				t.Fatalf("%s fixture failed schema validation: %v", name, err)
+			}
+		})
 	}
 }
 
