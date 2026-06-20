@@ -7,6 +7,48 @@ import (
 	"testing"
 )
 
+func TestFilterMountOptions(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{
+			name: "ext4 with canonical flags",
+			raw:  "rw,relatime",
+			want: []string{"relatime", "rw"},
+		},
+		{
+			name: "overlayfs drops lowerdir / upperdir / workdir",
+			raw:  "rw,relatime,lowerdir=/var/lib/containerd/snapshots/1/fs:/var/lib/containerd/snapshots/2/fs,upperdir=/var/lib/containerd/snapshots/3/fs,workdir=/var/lib/containerd/snapshots/3/work",
+			want: []string{"relatime", "rw"},
+		},
+		{
+			name: "tmpfs size= survives",
+			raw:  "rw,nosuid,nodev,size=1024k",
+			want: []string{"nodev", "nosuid", "rw", "size=1024k"},
+		},
+		{
+			name: "empty raw returns empty slice",
+			raw:  "",
+			want: []string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := filterMountOptions(tc.raw)
+			if len(got) != len(tc.want) {
+				t.Fatalf("len got %v want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("index %d got %q want %q (full %v)", i, got[i], tc.want[i], got)
+				}
+			}
+		})
+	}
+}
+
 func TestNormalizeCPUTarget(t *testing.T) {
 	cases := []struct {
 		name  string

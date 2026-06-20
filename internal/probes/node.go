@@ -367,13 +367,25 @@ func mountOptions(path string) []string {
 	if err != nil || strings.TrimSpace(out) == "" {
 		return nil
 	}
-	parts := strings.Split(strings.TrimSpace(out), ",")
+	return filterMountOptions(out)
+}
+
+// filterMountOptions parses a findmnt OPTIONS string and drops path-bearing
+// entries such as overlayfs lowerdir / upperdir / workdir. Those embed
+// container snapshot or temp paths that are noise for stack-composer and
+// confuse a reader of the profile.
+func filterMountOptions(raw string) []string {
+	parts := strings.Split(strings.TrimSpace(raw), ",")
 	opts := make([]string, 0, len(parts))
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if part != "" {
-			opts = append(opts, part)
+		if part == "" {
+			continue
 		}
+		if strings.ContainsAny(part, "/:") {
+			continue
+		}
+		opts = append(opts, part)
 	}
 	sort.Strings(opts)
 	return opts
