@@ -85,12 +85,17 @@ compilers:
 mpi:
   include: [openmpi/5.0.9]
 gpu_toolkits:
-  include: [rocm/6.0.0]
+  include: [rocm/6.0.0, cuda/12.5]
 ```
 
 Module verification uses non-login `bash -c`, initializes module machinery when
 available, purges/resets module state, loads exactly the candidate modules, and
 then probes environment variables and command paths.
+
+On current Cray PE NVIDIA systems, hints should use `PrgEnv-nvidia` plus the
+`nvidia/<version>` compiler module for NVHPC and `cuda/<version>` for the CUDA
+toolkit. The profile field remains `vendor_cray.nvhpc` for compiler identity;
+do not introduce legacy `PrgEnv-nvhpc` handling unless a target site requires it.
 
 ## Caveats
 
