@@ -15,8 +15,10 @@ implementation or open a doc fix first.
 
 ## Status
 
-Phases 1 through 5 are complete. The repo now has tracked full-stack
-fixtures, semantic profile verification, and probe/schema reference docs.
+The v1 implementation phases are complete. The repo has the all-in-one profile
+pipeline, lower-level probe/merge commands, module hints, clean-shell candidate
+verification, semantic profile verification, full-stack fixtures, and
+probe/schema reference docs.
 
 ## Layout
 
@@ -41,21 +43,36 @@ cluster-inspector/
       module_patterns.yaml
       profile_schema.json             # copy of profile-v1.json from stack-planning
   tests/fixtures/                     # golden inputs for tests
-  docs/development.md
+  docs/
+    probe-reference.md
+    profile-schema.md
 ```
 
 ## Build and run
 
 ```bash
 # Build the binary
-go build -o cluster-inspector ./cmd/cluster-inspector
+make build
 
 # Show subcommands
 ./cluster-inspector --help
 
 # Test
-go test ./...
+make test
+
+# Full local validation
+make lint test validate
 ```
+
+Primary commands:
+
+- `profile`: run `probe-system`, one `probe-node` per requested node type,
+  merge, schema-validate, and write `profile.yaml`.
+- `probe-system`: collect host-wide facts into a system fragment.
+- `probe-node`: collect per-node-type CPU/GPU/build-stage facts into a node
+  fragment using `this`, `srun`, or `pbsdsh`.
+- `merge`: deterministically merge one system fragment plus node fragments.
+- `verify`: validate a profile against the embedded schema and semantic checks.
 
 ## Companion / reference
 

@@ -10,7 +10,7 @@ that the renderer (`stack-composer`) consumes.
 |---|---|
 | Need the high-level role and product boundary | `README.md` here, then `stack-planning/docs/cluster_inspector_stack_profile_design_v1.md` |
 | Need to implement a specific profile-field probe | `stack-planning/docs/cluster_inspector_profile_extraction_map_v1.md` |
-| Need to know what a valid `profile.yaml` looks like | `stack-planning/schemas/profile-v1.json` + positive examples under `stack-planning/schemas/.validation/` |
+| Need to know what a valid `profile.yaml` looks like | `stack-planning/schemas/profile-v1.json` + tracked examples under `tests/fixtures/*/profile.yaml` |
 | Want to mine probe-logic patterns from a working tool | The old Python `clusterinspector` at `github.com/ray12514/clusterinspector`. Clone adjacent to this repo if you'll port from it. |
 
 If `stack-planning` isn't checked out locally, clone it to
@@ -100,9 +100,8 @@ schema.
 
 ## Implementation phase map
 
-The design doc names five phases. Stubs in this repo are marked with
-their target phase so an agent picking up implementation can scan the
-tree and find the right slice:
+The design doc names five phases. They are implemented; keep this map as the
+maintenance index for where each area lives:
 
 | Phase | Scope | Code locations |
 |---|---|---|
@@ -112,16 +111,16 @@ tree and find the right slice:
 | **Phase 4 — Module Hints And Clean-Shell Verification** | Module enumeration, hints schema, include/exclude/extras, clean-shell verification | `internal/hints/*.go`, plus updates to `internal/probes/modules.go` |
 | **Phase 5 — Full Stack Fixtures** | Golden fixtures, `verify` subcommand checks, documentation examples | `tests/fixtures/`, `internal/commands/verify.go` (final form), `docs/` |
 
-Phase 1 is implemented. Later-phase files may still return "not yet
-implemented". Look for `// TODO: Phase N` markers — they tell you which
-slice the body belongs to.
+All phase-planned command bodies are implemented. If future work adds a new
+phase or changes the design contract, update this map and `PHASE_STATUS.md` in
+the same change.
 
 ## Build and test
 
 ```bash
 # Initial setup
 go mod tidy                                 # fetches the committed dep set
-cp ../stack-planning/schemas/profile-v1.json internal/resources/profile_schema.json
+make sync-schema                            # refreshes embedded profile-v1.json
 
 # Build
 go build -o cluster-inspector ./cmd/cluster-inspector

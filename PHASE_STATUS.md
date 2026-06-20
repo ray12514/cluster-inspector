@@ -98,10 +98,11 @@ Acceptance per design doc:
 - [x] `docs/probe-reference.md` — per-probe usage + caveats
 - [x] `docs/profile-schema.md` — link/mirror of profile-v1.json reference
 
-## Notes for an agent picking up work
+## Maintenance notes
 
 1. Read `AGENTS.md` first.
-2. Find the lowest unchecked box above. Look at the file path. Open it.
-3. Look for the `// TODO: Phase N` marker — it tells you what the function body should become.
-4. Implement; check the box here when the design-doc acceptance criterion for the corresponding bullet passes.
-5. Run `make lint test` before committing.
+2. Treat the checked boxes above as the v1 completion record, not an active
+   implementation queue.
+3. For new work, update the design doc in `stack-planning` first when behavior
+   changes the contract.
+4. Run `make lint test validate` before committing.

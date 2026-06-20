@@ -51,7 +51,7 @@ cluster-inspector merge \
 ### `profile`
 
 Runs the full pipeline: `probe-system`, each requested `probe-node`, `merge`,
-and schema validation.
+schema validation, and semantic verification-ready profile emission.
 
 ```bash
 cluster-inspector profile \
@@ -65,7 +65,7 @@ cluster-inspector profile \
 ### `verify`
 
 Validates a generated or hand-written profile against the embedded schema and
-semantic checks.
+semantic checks used by the v6 stack examples.
 
 ```bash
 cluster-inspector verify systems/example/profile.yaml
