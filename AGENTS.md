@@ -138,6 +138,20 @@ where the subprocess output is captured as a fixture under
 Avoid hitting the real host in unit tests; reserve that for an
 explicit `e2e_test.go` build tag.
 
+## End-to-end smoke against a real Linux container
+
+A smoke pipeline that drives `cluster-inspector profile` + render +
+`spack install` inside a Docker container lives outside this repo so
+the integration target is replaceable without touching the inspector.
+The persistent runtime is at `~/Development/smoke-runtime/`; the
+orchestrator script and Dockerfile are colocated on the same host
+(see `~/Development/smoke-runtime/README.md` for the actions and the
+orchestrator's location). Run the smoke pipeline after changes that
+affect probe output (system fact gathering, schema validation,
+fragment merge) so the rendered profile still validates and downstream
+consumers still concretize and install cleanly. Treat the smoke
+runtime as a verification surface, not as a fixture this repo owns.
+
 ## When in doubt
 
 The design doc in `stack-planning` is authoritative. If you're about to
