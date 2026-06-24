@@ -134,10 +134,18 @@ func TestClassifyModuleName(t *testing.T) {
 		wantCategory string
 	}{
 		{"gcc-native/13", "compiler"},
+		{"gnu/gcc/13", "compiler"},
+		{"amd/aocc/4.2", "compiler"},
 		{"openmpi/5.0.9", "mpi"},
+		{"amd/openmpi/4.5.6", "mpi"},
 		{"rocm/6.0.0", "gpu_toolkit"},
+		{"amd/rocm/6.0.0", "gpu_toolkit"},
+		{"nvidia/cuda/12.4", "gpu_toolkit"},
 		{"libfabric/1.20", "fabric_userspace"},
+		{"ofi/libfabric/1.20", "fabric_userspace"},
 		{"cray-mpich/8.1.29", "mpi"},
+		{"cray/PrgEnv-gnu", "compiler"},
+		{"cray/cray-mpich/8.1.29", "cray_pe"},
 		{"unclassified/1.0", unknownModuleCategory},
 	}
 	for _, tc := range cases {

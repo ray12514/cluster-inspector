@@ -310,13 +310,12 @@ func applyGPUToolkitExtras(toolkits *model.GPUToolkitModules, hints *inspectorhi
 }
 
 func gpuToolkitNameFromModule(module string) string {
-	lower := strings.ToLower(module)
 	switch {
-	case strings.HasPrefix(lower, "rocm/"):
+	case moduleHasSegment(module, "rocm"):
 		return "rocm"
-	case strings.HasPrefix(lower, "cuda/") || strings.HasPrefix(lower, "cudatoolkit/"):
+	case moduleHasSegment(module, "cuda", "cudatoolkit"):
 		return "cudatoolkit"
-	case strings.HasPrefix(lower, "nvhpc/"):
+	case moduleHasSegment(module, "nvhpc"):
 		return "nvhpc"
 	default:
 		return ""

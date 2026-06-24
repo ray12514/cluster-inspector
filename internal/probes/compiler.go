@@ -158,21 +158,20 @@ func compilerLanguagesFromVerification(name string, verification moduleVerificat
 }
 
 func compilerNameFromModule(module string) string {
-	lower := strings.ToLower(module)
 	switch {
-	case strings.HasPrefix(lower, "prgenv-cray") || strings.HasPrefix(lower, "cce/"):
+	case moduleHasSegmentPrefix(module, "prgenv-cray") || moduleHasSegment(module, "cce"):
 		return "cce"
-	case strings.HasPrefix(lower, "prgenv-gnu") || strings.HasPrefix(lower, "gcc/") || strings.HasPrefix(lower, "gcc-native/"):
+	case moduleHasSegmentPrefix(module, "prgenv-gnu") || moduleHasSegment(module, "gcc", "gcc-native"):
 		return "gcc"
-	case strings.HasPrefix(lower, "prgenv-aocc") || strings.HasPrefix(lower, "aocc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-aocc") || moduleHasSegment(module, "aocc"):
 		return "aocc"
-	case strings.HasPrefix(lower, "prgenv-intel") || strings.HasPrefix(lower, "intel/"):
+	case moduleHasSegmentPrefix(module, "prgenv-intel") || moduleHasSegment(module, "intel"):
 		return "intel"
-	case strings.HasPrefix(lower, "oneapi/"):
+	case moduleHasSegment(module, "oneapi"):
 		return "oneapi"
-	case strings.HasPrefix(lower, "prgenv-nvidia") || strings.HasPrefix(lower, "nvhpc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-nvidia") || moduleHasSegment(module, "nvhpc"):
 		return "nvhpc"
-	case strings.HasPrefix(lower, "prgenv-amd") || strings.HasPrefix(lower, "rocmcc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-amd") || moduleHasSegment(module, "rocmcc"):
 		return "rocmcc"
 	default:
 		return ""
@@ -180,8 +179,7 @@ func compilerNameFromModule(module string) string {
 }
 
 func isCrayCompilerModule(module string) bool {
-	lower := strings.ToLower(module)
-	return strings.HasPrefix(lower, "prgenv-") || strings.HasPrefix(lower, "cce/") || strings.HasPrefix(lower, "gcc-native/") || strings.HasPrefix(lower, "rocmcc/")
+	return moduleHasSegmentPrefix(module, "prgenv-") || moduleHasSegment(module, "cce", "gcc-native", "rocmcc")
 }
 
 func compilerEnvKeys(name string) []string {

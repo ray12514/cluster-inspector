@@ -326,11 +326,11 @@ func fallbackModulePatterns() modulePatternFile {
 	return modulePatternFile{
 		SchemaVersion: 1,
 		Categories: map[string][]string{
-			"compiler":         {"gcc/*", "aocc/*", "cce/*", "intel/*", "oneapi/*", "nvhpc/*", "PrgEnv-*"},
-			"mpi":              {"openmpi/*", "mpich/*", "mvapich/*", "cray-mpich/*", "intel-mpi/*"},
-			"gpu_toolkit":      {"rocm/*", "cuda/*", "cudatoolkit/*", "nvhpc/*"},
-			"fabric_userspace": {"libfabric/*", "ucx/*", "cxi/*"},
-			"cray_pe":          {"PrgEnv-*", "craype-*", "cray-mpich/*", "cray-libsci/*"},
+			"compiler":         {"gcc/*", "*/gcc/*", "gcc-native/*", "*/gcc-native/*", "aocc/*", "*/aocc/*", "cce/*", "*/cce/*", "intel/*", "*/intel/*", "oneapi/*", "*/oneapi/*", "nvhpc/*", "*/nvhpc/*", "rocmcc/*", "*/rocmcc/*", "PrgEnv-*", "*/PrgEnv-*"},
+			"mpi":              {"openmpi/*", "*/openmpi/*", "mpich/*", "*/mpich/*", "mvapich/*", "*/mvapich/*", "mvapich2/*", "*/mvapich2/*", "cray-mpich/*", "*/cray-mpich/*", "intel-mpi/*", "*/intel-mpi/*", "impi/*", "*/impi/*"},
+			"gpu_toolkit":      {"rocm/*", "*/rocm/*", "cuda/*", "*/cuda/*", "cudatoolkit/*", "*/cudatoolkit/*", "nvhpc/*", "*/nvhpc/*"},
+			"fabric_userspace": {"libfabric/*", "*/libfabric/*", "ucx/*", "*/ucx/*", "cxi/*", "*/cxi/*"},
+			"cray_pe":          {"PrgEnv-*", "*/PrgEnv-*", "craype-*", "*/craype-*", "cray-mpich/*", "*/cray-mpich/*", "cray-libsci/*", "*/cray-libsci/*"},
 		},
 	}
 }

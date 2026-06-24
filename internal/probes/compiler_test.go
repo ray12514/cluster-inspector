@@ -67,6 +67,29 @@ func TestSamePrefix(t *testing.T) {
 	}
 }
 
+func TestCompilerNameFromProviderPrefixedModule(t *testing.T) {
+	cases := []struct {
+		module string
+		want   string
+	}{
+		{"gcc/13", "gcc"},
+		{"gnu/gcc/13", "gcc"},
+		{"cray/gcc-native/13", "gcc"},
+		{"amd/aocc/4.2", "aocc"},
+		{"oneapi/compiler/2024.2", "oneapi"},
+		{"nvidia/nvhpc/25.3", "nvhpc"},
+		{"cray/PrgEnv-gnu", "gcc"},
+		{"unknown/1.0", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.module, func(t *testing.T) {
+			if got := compilerNameFromModule(tc.module); got != tc.want {
+				t.Fatalf("compilerNameFromModule(%q) = %q, want %q", tc.module, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestActiveCrayPrgEnvCompiler(t *testing.T) {
 	cases := []struct {
 		peEnv      string

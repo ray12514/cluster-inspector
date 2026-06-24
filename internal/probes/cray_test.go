@@ -31,6 +31,28 @@ func TestCrayCompilerFlavor(t *testing.T) {
 	}
 }
 
+func TestCrayFlavorFromProviderPrefixedModule(t *testing.T) {
+	cases := []struct {
+		module string
+		want   string
+	}{
+		{"PrgEnv-gnu", "gcc"},
+		{"cray/PrgEnv-gnu", "gcc"},
+		{"cray/gcc-native/13", "gcc"},
+		{"amd/aocc/4.2", "aocc"},
+		{"cray/PrgEnv-amd", "rocmcc"},
+		{"nvidia/nvhpc/25.3", "nvhpc"},
+		{"unknown/1.0", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.module, func(t *testing.T) {
+			if got := crayFlavorFromModule(tc.module); got != tc.want {
+				t.Fatalf("crayFlavorFromModule(%q) = %q, want %q", tc.module, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestLatestChildVersion(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"8.1.27", "8.1.28", "8.1.29", "8.1.30-rc1"} {

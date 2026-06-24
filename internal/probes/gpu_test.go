@@ -75,3 +75,25 @@ func TestFilepathJoinRefusesEmpty(t *testing.T) {
 		t.Fatalf("filepathJoin with empty head should return empty, got %q", got)
 	}
 }
+
+func TestGPUToolkitNameFromProviderPrefixedModule(t *testing.T) {
+	cases := []struct {
+		module string
+		want   string
+	}{
+		{"rocm/6.0.0", "rocm"},
+		{"amd/rocm/6.0.0", "rocm"},
+		{"cuda/12.4", "cudatoolkit"},
+		{"nvidia/cuda/12.4", "cudatoolkit"},
+		{"nvidia/cudatoolkit/12.4", "cudatoolkit"},
+		{"nvidia/nvhpc/25.3", "nvhpc"},
+		{"unknown/1.0", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.module, func(t *testing.T) {
+			if got := gpuToolkitNameFromModule(tc.module); got != tc.want {
+				t.Fatalf("gpuToolkitNameFromModule(%q) = %q, want %q", tc.module, got, tc.want)
+			}
+		})
+	}
+}

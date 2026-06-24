@@ -60,10 +60,10 @@ func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hint
 	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "mpi"), moduleHints, nil, evidenceMap, "mpi.module_hints")
 	out := []model.MPIExternal{}
 	for _, module := range accepted {
-		if strings.HasPrefix(strings.ToLower(module), "cray-mpich/") {
+		name := mpiNameFromModule(module)
+		if name == "cray-mpich" {
 			continue
 		}
-		name := mpiNameFromModule(module)
 		if name == "" {
 			continue
 		}
@@ -110,19 +110,21 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 }
 
 func mpiNameFromModule(module string) string {
-	lower := strings.ToLower(module)
-	switch {
-	case strings.HasPrefix(lower, "openmpi/"):
-		return "openmpi"
-	case strings.HasPrefix(lower, "mpich/"):
-		return "mpich"
-	case strings.HasPrefix(lower, "mvapich/") || strings.HasPrefix(lower, "mvapich2/"):
-		return "mvapich"
-	case strings.HasPrefix(lower, "intel-mpi/") || strings.HasPrefix(lower, "impi/"):
-		return "intel-mpi"
-	default:
-		return ""
+	for _, segment := range moduleSegments(module) {
+		switch segment {
+		case "cray-mpich":
+			return "cray-mpich"
+		case "openmpi":
+			return "openmpi"
+		case "mpich":
+			return "mpich"
+		case "mvapich", "mvapich2":
+			return "mvapich"
+		case "intel-mpi", "impi":
+			return "intel-mpi"
+		}
 	}
+	return ""
 }
 
 func mpiProvenanceFromPrefix(prefix string) string {

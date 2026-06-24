@@ -31,25 +31,27 @@ func ProbeFilesystem() FilesystemResult {
 		Evidence: map[string]model.Evidence{},
 	}
 
-	candidates := []string{
-		"/shared/stack/spack/opt",
-		"/apps/spack/opt",
-		"/opt/spack/opt",
-	}
-	for _, path := range candidates {
-		if !isDir(path) {
+	for _, path := range candidateInstallTreePaths() {
+		probeRoot := nearestExistingDir(path)
+		if probeRoot == "" {
 			continue
 		}
 		candidate := model.InstallTreeCandidate{
 			Path:         path,
-			Type:         filesystemType(path),
-			LocksHonored: locksHonored(path),
+			Type:         filesystemType(probeRoot),
+			LocksHonored: locksHonored(probeRoot),
 		}
-		if freeGB := freeGB(path); freeGB >= 0 {
+		if freeGB := freeGB(probeRoot); freeGB >= 0 {
 			candidate.FreeGB = &freeGB
 		}
 		result.Filesystem.InstallTreeCandidates = append(result.Filesystem.InstallTreeCandidates, candidate)
-		appendEvidence(result.Evidence, "filesystem.install_tree_candidates."+path, evidence(model.ConfidenceProbed, "existing known install-tree path"))
+		confidence := model.ConfidenceInferred
+		reason := "known install-tree shape under existing filesystem root"
+		if probeRoot == path {
+			confidence = model.ConfidenceProbed
+			reason = "existing known install-tree path"
+		}
+		appendEvidence(result.Evidence, "filesystem.install_tree_candidates."+path, evidence(confidence, reason))
 	}
 
 	if len(result.Filesystem.InstallTreeCandidates) == 0 {
@@ -71,6 +73,50 @@ func ProbeFilesystem() FilesystemResult {
 		}
 	}
 	return result
+}
+
+func candidateInstallTreePaths() []string {
+	user := os.Getenv("USER")
+	paths := []string{
+		os.Getenv("CLUSTER_INSPECTOR_INSTALL_TREE"),
+		"/shared/stack/spack/opt",
+		"/apps/spack/opt",
+		"/opt/spack/opt",
+	}
+	sharedRoots := []string{"/shared", "/apps", "/gpfs", "/lustre", "/project", "/projects", "/work"}
+	for _, root := range sharedRoots {
+		if isDir(root) {
+			paths = append(paths, filepath.Join(root, "stack", "spack", "opt"))
+		}
+	}
+	if user != "" {
+		for _, root := range []string{"/scratch", "/local_scratch"} {
+			if isDir(root) {
+				paths = append(paths, filepath.Join(root, user, "stack", "spack", "opt"))
+			}
+		}
+	}
+	return cleanPathList(paths)
+}
+
+func nearestExistingDir(path string) string {
+	path = filepath.Clean(strings.TrimSpace(path))
+	if path == "" || !filepath.IsAbs(path) {
+		return ""
+	}
+	for {
+		if isDir(path) {
+			if path == string(filepath.Separator) {
+				return ""
+			}
+			return path
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return ""
+		}
+		path = parent
+	}
 }
 
 func filesystemType(path string) string {

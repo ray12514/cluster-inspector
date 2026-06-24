@@ -63,3 +63,37 @@ func moduleVersion(module string) string {
 	}
 	return ""
 }
+
+func moduleSegments(module string) []string {
+	parts := strings.Split(strings.ToLower(module), "/")
+	segments := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			segments = append(segments, part)
+		}
+	}
+	return segments
+}
+
+func moduleHasSegment(module string, names ...string) bool {
+	for _, segment := range moduleSegments(module) {
+		for _, name := range names {
+			if segment == strings.ToLower(name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func moduleHasSegmentPrefix(module string, prefixes ...string) bool {
+	for _, segment := range moduleSegments(module) {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(segment, strings.ToLower(prefix)) {
+				return true
+			}
+		}
+	}
+	return false
+}

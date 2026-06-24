@@ -104,7 +104,7 @@ func applyVerifiedCrayMPICH(vendor *model.VendorCray, candidates []ModuleCandida
 		moduleHints = hints.MPI
 	}
 	mpichCandidates := filterModuleNames(candidateNamesByCategory(candidates, "mpi"), func(module string) bool {
-		return strings.HasPrefix(strings.ToLower(module), "cray-mpich/")
+		return mpiNameFromModule(module) == "cray-mpich"
 	})
 	accepted := applyModulePolicy(mpichCandidates, moduleHints, nil, evidenceMap, "vendor_cray.cray_mpich.module_hints")
 	for _, mpichModule := range accepted {
@@ -140,19 +140,18 @@ func applyVerifiedCrayMPICH(vendor *model.VendorCray, candidates []ModuleCandida
 }
 
 func crayFlavorFromModule(module string) string {
-	lower := strings.ToLower(module)
 	switch {
-	case strings.HasPrefix(lower, "prgenv-cray") || strings.HasPrefix(lower, "cce/"):
+	case moduleHasSegmentPrefix(module, "prgenv-cray") || moduleHasSegment(module, "cce"):
 		return "cce"
-	case strings.HasPrefix(lower, "prgenv-gnu") || strings.HasPrefix(lower, "gcc-native/"):
+	case moduleHasSegmentPrefix(module, "prgenv-gnu") || moduleHasSegment(module, "gcc-native"):
 		return "gcc"
-	case strings.HasPrefix(lower, "prgenv-aocc") || strings.HasPrefix(lower, "aocc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-aocc") || moduleHasSegment(module, "aocc"):
 		return "aocc"
-	case strings.HasPrefix(lower, "prgenv-intel") || strings.HasPrefix(lower, "intel/"):
+	case moduleHasSegmentPrefix(module, "prgenv-intel") || moduleHasSegment(module, "intel"):
 		return "intel"
-	case strings.HasPrefix(lower, "prgenv-amd") || strings.HasPrefix(lower, "rocm/") || strings.HasPrefix(lower, "rocmcc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-amd") || moduleHasSegment(module, "rocm", "rocmcc"):
 		return "rocmcc"
-	case strings.HasPrefix(lower, "prgenv-nvidia") || strings.HasPrefix(lower, "nvhpc/"):
+	case moduleHasSegmentPrefix(module, "prgenv-nvidia") || moduleHasSegment(module, "nvhpc"):
 		return "nvhpc"
 	default:
 		return ""

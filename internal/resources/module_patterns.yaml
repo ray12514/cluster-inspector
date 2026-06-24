@@ -3,34 +3,61 @@ schema_version: 1
 categories:
   compiler:
     - PrgEnv-*
+    - "*/PrgEnv-*"
     - cce/*
+    - "*/cce/*"
     - gcc/*
+    - "*/gcc/*"
     - gcc-native/*
+    - "*/gcc-native/*"
     - aocc/*
+    - "*/aocc/*"
     - amd/*
     - intel/*
+    - "*/intel/*"
     - oneapi/*
+    - "*/oneapi/*"
     - nvhpc/*
+    - "*/nvhpc/*"
     - rocmcc/*
+    - "*/rocmcc/*"
   mpi:
     - cray-mpich/*
+    - "*/cray-mpich/*"
     - openmpi/*
+    - "*/openmpi/*"
     - mpich/*
+    - "*/mpich/*"
     - mvapich/*
+    - "*/mvapich/*"
     - mvapich2/*
+    - "*/mvapich2/*"
     - intel-mpi/*
+    - "*/intel-mpi/*"
     - impi/*
+    - "*/impi/*"
   gpu_toolkit:
     - rocm/*
+    - "*/rocm/*"
     - cuda/*
+    - "*/cuda/*"
     - cudatoolkit/*
+    - "*/cudatoolkit/*"
     - nvhpc/*
+    - "*/nvhpc/*"
   fabric_userspace:
     - libfabric/*
+    - "*/libfabric/*"
     - ucx/*
+    - "*/ucx/*"
     - cxi/*
+    - "*/cxi/*"
   cray_pe:
     - PrgEnv-*
+    - "*/PrgEnv-*"
     - craype-*
+    - "*/craype-*"
     - cray-mpich/*
+    - "*/cray-mpich/*"
     - cray-libsci/*
+    - "*/cray-libsci/*"
