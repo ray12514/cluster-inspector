@@ -26,7 +26,7 @@ func ProbeCrayPE() CrayPEResult {
 // evidence and verified module combinations.
 func ProbeCrayPEWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hints) CrayPEResult {
 	result := CrayPEResult{Evidence: map[string]model.Evidence{}}
-	if !detectCrayEvidence() {
+	if !detectCrayEvidence() && !crayModuleEvidencePresent(candidates) {
 		appendEvidence(result.Evidence, "vendor_cray", evidence(model.ConfidenceProbed, "no Cray PE evidence"))
 		return result
 	}
@@ -64,6 +64,21 @@ func ProbeCrayPEWithModules(candidates []ModuleCandidate, hints *inspectorhints.
 	}
 	result.VendorCray = vendor
 	return result
+}
+
+func crayModuleEvidencePresent(candidates []ModuleCandidate) bool {
+	for _, candidate := range candidates {
+		if stringSliceContains(candidate.Categories, "cray_pe") {
+			return true
+		}
+		if moduleHasSegmentPrefix(candidate.Name, "prgenv-", "craype-", "cray-libsci") {
+			return true
+		}
+		if mpiNameFromModule(candidate.Name) == "cray-mpich" {
+			return true
+		}
+	}
+	return false
 }
 
 func applyVerifiedCrayModules(vendor *model.VendorCray, candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) {

@@ -36,6 +36,25 @@ func TestDeriveSystemFamily(t *testing.T) {
 	}
 }
 
+func TestLoadedCrayModuleEvidence(t *testing.T) {
+	t.Setenv("LOADEDMODULES", "PrgEnv-gnu:cray-mpich/8.1.29")
+	t.Setenv("_LMFILES_", "")
+	if !loadedCrayModuleEvidence() {
+		t.Fatal("expected loaded Cray modules to count as Cray evidence")
+	}
+
+	t.Setenv("LOADEDMODULES", "gcc/13:openmpi/5")
+	if loadedCrayModuleEvidence() {
+		t.Fatal("generic modules should not count as Cray evidence")
+	}
+
+	t.Setenv("LOADEDMODULES", "")
+	t.Setenv("_LMFILES_", "/opt/cray/pe/lmod/modulefiles/core/craype-x86-milan")
+	if !loadedCrayModuleEvidence() {
+		t.Fatal("Cray module file paths should count as Cray evidence")
+	}
+}
+
 func TestSanitizeName(t *testing.T) {
 	cases := []struct {
 		name string

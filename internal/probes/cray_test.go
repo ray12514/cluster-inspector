@@ -53,6 +53,42 @@ func TestCrayFlavorFromProviderPrefixedModule(t *testing.T) {
 	}
 }
 
+func TestCrayModuleEvidencePresent(t *testing.T) {
+	cases := []struct {
+		name       string
+		candidates []ModuleCandidate
+		want       bool
+	}{
+		{
+			name:       "category",
+			candidates: []ModuleCandidate{{Name: "future-pe/compiler/1.0", Categories: []string{"cray_pe"}}},
+			want:       true,
+		},
+		{
+			name:       "prefixed PrgEnv",
+			candidates: []ModuleCandidate{{Name: "cray/PrgEnv-gnu", Categories: []string{"compiler"}}},
+			want:       true,
+		},
+		{
+			name:       "prefixed cray-mpich",
+			candidates: []ModuleCandidate{{Name: "cray/cray-mpich/8.1.29", Categories: []string{"mpi"}}},
+			want:       true,
+		},
+		{
+			name:       "generic openmpi",
+			candidates: []ModuleCandidate{{Name: "amd/openmpi/4.5.6", Categories: []string{"mpi"}}},
+			want:       false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := crayModuleEvidencePresent(tc.candidates); got != tc.want {
+				t.Fatalf("crayModuleEvidencePresent(...) = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestLatestChildVersion(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"8.1.27", "8.1.28", "8.1.29", "8.1.30-rc1"} {

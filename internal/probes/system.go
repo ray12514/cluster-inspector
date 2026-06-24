@@ -115,7 +115,15 @@ func probeGlibc(evidenceMap map[string]model.Evidence) string {
 }
 
 func detectCrayEvidence() bool {
-	return isDir("/opt/cray/pe") || os.Getenv("CRAYPE_VERSION") != "" || os.Getenv("PE_ENV") != ""
+	return isDir("/opt/cray/pe") || os.Getenv("CRAYPE_VERSION") != "" || os.Getenv("PE_ENV") != "" || loadedCrayModuleEvidence()
+}
+
+func loadedCrayModuleEvidence() bool {
+	loaded := strings.ToLower(os.Getenv("LOADEDMODULES") + " " + os.Getenv("_LMFILES_"))
+	return strings.Contains(loaded, "prgenv-") ||
+		strings.Contains(loaded, "cray-mpich") ||
+		strings.Contains(loaded, "craype-") ||
+		strings.Contains(loaded, "cray-libsci")
 }
 
 func deriveSystemFamily(osName string, major int, cray bool) string {
