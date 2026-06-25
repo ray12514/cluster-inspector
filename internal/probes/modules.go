@@ -283,17 +283,48 @@ func modulePathDepth(rel string) int {
 func classifyModuleName(name string) []string {
 	patterns := loadModulePatterns()
 	categories := make([]string, 0, len(patterns.Categories))
+	seen := map[string]bool{}
+	appendCategory := func(category string) {
+		if !seen[category] {
+			categories = append(categories, category)
+			seen[category] = true
+		}
+	}
 	for _, category := range orderedModuleCategories(patterns.Categories) {
 		for _, pattern := range patterns.Categories[category] {
 			matched, err := path.Match(pattern, name)
 			if err == nil && matched {
-				categories = append(categories, category)
+				appendCategory(category)
 				break
 			}
 		}
 	}
+	for _, category := range segmentCategoriesForModule(name) {
+		appendCategory(category)
+	}
 	if len(categories) == 0 {
 		return []string{unknownModuleCategory}
+	}
+	return categories
+}
+
+func segmentCategoriesForModule(name string) []string {
+	categories := []string{}
+	if compilerNameFromModule(name) != "" {
+		categories = append(categories, "compiler")
+	}
+	if mpiNameFromModule(name) != "" {
+		categories = append(categories, "mpi")
+	}
+	if gpuToolkitNameFromModule(name) != "" {
+		categories = append(categories, "gpu_toolkit")
+	}
+	if moduleHasSegment(name, "libfabric", "ucx", "cxi") {
+		categories = append(categories, "fabric_userspace")
+	}
+	if moduleHasSegmentPrefix(name, "prgenv-", "craype-") ||
+		moduleHasSegment(name, "cray-mpich", "cray-libsci") {
+		categories = append(categories, "cray_pe")
 	}
 	return categories
 }
