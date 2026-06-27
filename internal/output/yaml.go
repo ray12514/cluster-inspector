@@ -61,6 +61,11 @@ func profileNode(p *model.Profile) (*yaml.Node, error) {
 			return nil, err
 		}
 	}
+	if len(p.SystemExternals) > 0 {
+		if err := appendValue(root, "system_externals", p.SystemExternals); err != nil {
+			return nil, err
+		}
+	}
 	if err := appendValue(root, "filesystem", p.Filesystem); err != nil {
 		return nil, err
 	}

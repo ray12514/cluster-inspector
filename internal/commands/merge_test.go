@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ray12514/cluster-inspector/internal/model"
@@ -62,6 +63,10 @@ func TestMergeFragmentsOutputIsByteIdentical(t *testing.T) {
 	}
 	if !bytes.Equal(first.Bytes(), second.Bytes()) {
 		t.Fatalf("expected byte-identical output for repeated merge writes")
+	}
+	outputText := first.String()
+	if !strings.Contains(outputText, "system_externals:") || !strings.Contains(outputText, "name: openssl") {
+		t.Fatalf("expected system externals in profile output:\n%s", outputText)
 	}
 }
 
@@ -183,6 +188,17 @@ func minimalSystemFragment() model.SystemFragment {
 			Drivers: []model.NamedPrefixVersioned{},
 		},
 		ModulesSystem: model.ModulesSystem{Tool: "lmod"},
+		SystemExternals: []model.SystemExternal{{
+			Name:           "openssl",
+			Version:        "3.0.7",
+			Prefix:         "/usr",
+			ProviderFamily: "system",
+			Variants:       "+shared",
+			Detection: &model.ExternalDetection{
+				Confidence: "probed",
+				Source:     "test fixture",
+			},
+		}},
 		Filesystem: model.Filesystem{
 			InstallTreeCandidates: []model.InstallTreeCandidate{{
 				Path:         "/shared/stack/spack/opt",
