@@ -3,8 +3,11 @@ package probes
 import (
 	"strings"
 
+	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
+
+var defaultSystemExternalFocus = []string{"openssl", "curl"}
 
 // SystemExternalsResult contains focused ordinary package external candidates.
 type SystemExternalsResult struct {
@@ -14,17 +17,35 @@ type SystemExternalsResult struct {
 
 // ProbeSystemExternals discovers a small focused set of ordinary package
 // externals that stack defaults commonly want to use from the host OS.
-func ProbeSystemExternals() SystemExternalsResult {
+func ProbeSystemExternals(hints *inspectorhints.Hints) SystemExternalsResult {
 	result := SystemExternalsResult{
 		Externals: []model.SystemExternal{},
 		Evidence:  map[string]model.Evidence{},
 	}
-	for _, name := range []string{"openssl", "curl"} {
+	for _, name := range focusedSystemExternalNames(hints, result.Evidence) {
 		if external, ok := probeFocusedSystemExternal(name, result.Evidence); ok {
 			result.Externals = append(result.Externals, external)
 		}
 	}
 	return result
+}
+
+func focusedSystemExternalNames(hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) []string {
+	moduleHints := inspectorhints.ModuleHints{}
+	if hints != nil {
+		moduleHints = hints.SystemExternals
+	}
+	candidates := append([]string{}, defaultSystemExternalFocus...)
+	candidates = append(candidates, moduleHints.Include...)
+	result, err := inspectorhints.Apply(candidates, moduleHints, nil)
+	if err != nil {
+		appendEvidence(evidenceMap, "system_externals.hints", evidence(model.ConfidenceUnknown, err.Error()))
+		return defaultSystemExternalFocus
+	}
+	if len(result.Rejected) > 0 || len(result.MissingIncludes) > 0 {
+		appendEvidence(evidenceMap, "system_externals.hints", evidence(model.ConfidenceInferred, "inspector-hints system_externals filter applied"))
+	}
+	return result.Accepted
 }
 
 func probeFocusedSystemExternal(

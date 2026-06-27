@@ -53,7 +53,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	compilers := probes.ProbeCompilersExternalWithModules(modules.Candidates, hints)
 	mpi := probes.ProbeMPIWithModules(modules.Candidates, hints)
 	gpuToolkits := probes.ProbeGPUToolkitModulesWithModules(modules.Candidates, hints)
-	systemExternals := probes.ProbeSystemExternals()
+	systemExternals := probes.ProbeSystemExternals(hints)
 	filesystem := probes.ProbeFilesystem()
 
 	evidence := map[string]model.Evidence{}

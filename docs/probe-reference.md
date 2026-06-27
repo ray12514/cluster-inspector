@@ -17,8 +17,8 @@ cluster-inspector probe-system \
 ```
 
 System-wide probes cover OS/glibc, module tool, module candidates, fabric,
-Cray PE inventory, compiler externals, MPI externals, GPU toolkit modules, and
-shared filesystem candidates.
+Cray PE inventory, compiler externals, MPI externals, GPU toolkit modules,
+focused ordinary system externals, and shared filesystem candidates.
 
 ### `probe-node`
 
@@ -86,7 +86,14 @@ mpi:
   include: [openmpi/5.0.9]
 gpu_toolkits:
   include: [rocm/6.0.0, cuda/12.5]
+system_externals:
+  include: [openssl, curl]
 ```
+
+When `system_externals` is omitted, Cluster Inspector probes the default focused
+set `openssl` and `curl`. Add an `include` list when a site wants a different
+focused set. These are observed facts only; stack defaults decide whether the
+renderer may use a discovered package as a Spack external.
 
 Module verification uses non-login `bash -c`, initializes module machinery when
 available, purges/resets module state, loads exactly the candidate modules, and

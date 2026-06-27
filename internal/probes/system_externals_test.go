@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 )
 
 func TestProbeSystemExternalsFindsFocusedCommandBackedPackages(t *testing.T) {
@@ -12,7 +14,7 @@ func TestProbeSystemExternalsFindsFocusedCommandBackedPackages(t *testing.T) {
 	writeExecutable(t, filepath.Join(bin, "curl"), "#!/bin/sh\necho 'curl 8.7.1 libcurl/8.7.1 OpenSSL/3.0.7'\n")
 	t.Setenv("PATH", bin)
 
-	result := ProbeSystemExternals()
+	result := ProbeSystemExternals(nil)
 
 	if len(result.Externals) != 2 {
 		t.Fatalf("expected 2 externals, got %#v", result.Externals)
@@ -28,6 +30,27 @@ func TestProbeSystemExternalsFindsFocusedCommandBackedPackages(t *testing.T) {
 	}
 	if result.Externals[1].Detection == nil || result.Externals[1].Detection.Source != "curl --version" {
 		t.Fatalf("unexpected curl detection: %#v", result.Externals[1].Detection)
+	}
+}
+
+func TestProbeSystemExternalsHonorsHintsFocus(t *testing.T) {
+	bin := t.TempDir()
+	writeExecutable(t, filepath.Join(bin, "openssl"), "#!/bin/sh\necho 'OpenSSL 3.0.7 1 Nov 2022'\n")
+	writeExecutable(t, filepath.Join(bin, "curl"), "#!/bin/sh\necho 'curl 8.7.1 libcurl/8.7.1 OpenSSL/3.0.7'\n")
+	t.Setenv("PATH", bin)
+
+	result := ProbeSystemExternals(&inspectorhints.Hints{
+		SchemaVersion: 1,
+		SystemExternals: inspectorhints.ModuleHints{
+			Include: []string{"curl"},
+		},
+	})
+
+	if len(result.Externals) != 1 {
+		t.Fatalf("expected 1 external, got %#v", result.Externals)
+	}
+	if result.Externals[0].Name != "curl" {
+		t.Fatalf("unexpected focused external: %#v", result.Externals[0])
 	}
 }
 

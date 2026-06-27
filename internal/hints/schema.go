@@ -26,6 +26,7 @@ type Hints struct {
 	MPI             ModuleHints    `yaml:"mpi"`
 	GPUToolkits     ModuleHints    `yaml:"gpu_toolkits"`
 	FabricUserspace ModuleHints    `yaml:"fabric_userspace"`
+	SystemExternals ModuleHints    `yaml:"system_externals"`
 	Extras          ExplicitExtras `yaml:"extras"`
 }
 
@@ -130,6 +131,9 @@ func (h *Hints) Validate() error {
 		return err
 	}
 	if err := validateModuleHints("fabric_userspace", h.FabricUserspace); err != nil {
+		return err
+	}
+	if err := validateModuleHints("system_externals", h.SystemExternals); err != nil {
 		return err
 	}
 	return validateExtras(h.Extras)

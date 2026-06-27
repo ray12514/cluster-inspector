@@ -25,6 +25,10 @@ mpi:
 gpu_toolkits:
   include:
     - rocm/6.0.0
+system_externals:
+  include:
+    - openssl
+    - curl
 
 extras:
   compilers:
@@ -44,6 +48,7 @@ extras:
 	}
 	assertStrings(t, parsed.Compilers.Include, []string{"cce/17.0.1", "gcc-native/13"})
 	assertStrings(t, parsed.Compilers.ExcludePatterns, []string{"gcc-data/*", "gcc-toolset/*"})
+	assertStrings(t, parsed.SystemExternals.Include, []string{"openssl", "curl"})
 	if len(parsed.Extras.Compilers) != 1 {
 		t.Fatalf("len(Extras.Compilers) = %d, want 1", len(parsed.Extras.Compilers))
 	}
