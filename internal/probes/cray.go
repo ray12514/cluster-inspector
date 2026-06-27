@@ -20,14 +20,8 @@ type CrayPEResult struct {
 
 type crayPEInventory struct {
 	PEVersion string
-	CCE       *crayCompilerBlock
-	GCC       *crayCompilerBlock
-	AOCC      *crayCompilerBlock
-	Intel     *crayCompilerBlock
-	ROCmCC    *crayCompilerBlock
-	NVHPC     *crayCompilerBlock
+	Compilers map[string]*crayCompilerBlock
 	CrayMPICH *crayMPICHBlock
-	LibSci    *crayLibSciBlock
 }
 
 type crayCompilerBlock struct {
@@ -46,14 +40,9 @@ type crayMPICHFlavor struct {
 	Modules []string
 }
 
-type crayLibSciBlock struct {
-	Version string
-	Prefix  string
-}
-
 // ProbeCrayPE detects Cray Programming Environment presence and inventory:
-// PE version, CCE / Cray GCC / AOCC / Intel / ROCmCC / NVHPC compilers, Cray MPICH
-// flavors (per-compiler prefixes), libsci.
+// PE version, platform-owned compilers, and Cray MPICH flavors
+// (per-compiler prefixes).
 func ProbeCrayPE() CrayPEResult {
 	return ProbeCrayPEWithModules(nil, nil)
 }
@@ -78,26 +67,25 @@ func ProbeCrayPEWithModules(candidates []ModuleCandidate, hints *inspectorhints.
 		appendEvidence(result.Evidence, "provider.platform.cray-pe.version", evidence(model.ConfidenceProbed, "CRAYPE_VERSION or "+crayPEPolicy().PERoot))
 	}
 
-	vendor := &crayPEInventory{PEVersion: peVersion}
+	vendor := &crayPEInventory{
+		PEVersion: peVersion,
+		Compilers: map[string]*crayCompilerBlock{},
+	}
 	peRoot := crayPEPolicy().PERoot
-	vendor.CCE = crayCompiler("cce", firstNonEmptyEnv(compilerEnvKeys("cce")...), filepath.Join(peRoot, "cce"), []string{compilerProgramEnvironmentModule("cce")})
-	vendor.GCC = crayCompiler("gcc", firstNonEmptyEnv(compilerEnvKeys("gcc")...), filepath.Join(peRoot, "gcc"), []string{compilerProgramEnvironmentModule("gcc")})
-	vendor.AOCC = crayAOCCCompiler()
-	vendor.Intel = crayIntelCompiler()
+	setCrayCompiler(vendor, "cce", crayCompiler("cce", firstNonEmptyEnv(compilerEnvKeys("cce")...), filepath.Join(peRoot, "cce"), []string{compilerProgramEnvironmentModule("cce")}))
+	setCrayCompiler(vendor, "gcc", crayCompiler("gcc", firstNonEmptyEnv(compilerEnvKeys("gcc")...), filepath.Join(peRoot, "gcc"), []string{compilerProgramEnvironmentModule("gcc")}))
+	setCrayCompiler(vendor, "aocc", crayAOCCCompiler())
+	setCrayCompiler(vendor, "intel", crayIntelCompiler())
 	rocmPolicy, _ := gpuToolkitPolicyByName("rocm")
 	nvhpcPolicy, _ := gpuToolkitPolicyByName("nvhpc")
-	vendor.ROCmCC = crayCompiler("rocmcc", firstNonEmptyEnv(compilerEnvKeys("rocmcc")...), firstExistingPolicyRoot(rocmPolicy.Roots), []string{compilerProgramEnvironmentModule("rocmcc")})
-	vendor.NVHPC = crayCompiler("nvhpc", firstNonEmptyEnv(compilerEnvKeys("nvhpc")...), firstExistingPolicyRoot(nvhpcPolicy.Roots), []string{compilerProgramEnvironmentModule("nvhpc")})
+	setCrayCompiler(vendor, "rocmcc", crayCompiler("rocmcc", firstNonEmptyEnv(compilerEnvKeys("rocmcc")...), firstExistingPolicyRoot(rocmPolicy.Roots), []string{compilerProgramEnvironmentModule("rocmcc")}))
+	setCrayCompiler(vendor, "nvhpc", crayCompiler("nvhpc", firstNonEmptyEnv(compilerEnvKeys("nvhpc")...), firstExistingPolicyRoot(nvhpcPolicy.Roots), []string{compilerProgramEnvironmentModule("nvhpc")}))
 	vendor.CrayMPICH = crayMPICH()
-	vendor.LibSci = crayLibSci()
 	applyVerifiedCrayModules(vendor, candidates, hints, result.Evidence)
 
-	appendCrayCompilerEvidence(result.Evidence, "cce", vendor.CCE)
-	appendCrayCompilerEvidence(result.Evidence, "gcc", vendor.GCC)
-	appendCrayCompilerEvidence(result.Evidence, "aocc", vendor.AOCC)
-	appendCrayCompilerEvidence(result.Evidence, "intel", vendor.Intel)
-	appendCrayCompilerEvidence(result.Evidence, "rocmcc", vendor.ROCmCC)
-	appendCrayCompilerEvidence(result.Evidence, "nvhpc", vendor.NVHPC)
+	for _, name := range sortedCrayCompilerNames(vendor) {
+		appendCrayCompilerEvidence(result.Evidence, name, getCrayCompiler(vendor, name))
+	}
 	if vendor.CrayMPICH != nil {
 		appendEvidence(result.Evidence, "mpi_providers.cray-mpich", evidence(model.ConfidenceProbed, "Cray MPICH environment or "+filepath.Join(crayPEPolicy().PERoot, "mpich")))
 	}
@@ -112,29 +100,19 @@ func crayCompilerProviders(vendor *crayPEInventory) []model.CompilerProvider {
 	}
 	langs := []string{"c", "c++", "fortran"}
 	out := []model.CompilerProvider{}
-	blocks := []struct {
-		name  string
-		block *crayCompilerBlock
-	}{
-		{"cce", vendor.CCE},
-		{"gcc", vendor.GCC},
-		{"aocc", vendor.AOCC},
-		{"intel", vendor.Intel},
-		{"rocmcc", vendor.ROCmCC},
-		{"nvhpc", vendor.NVHPC},
-	}
-	for _, item := range blocks {
-		if item.block == nil {
+	for _, name := range sortedCrayCompilerNames(vendor) {
+		block := getCrayCompiler(vendor, name)
+		if block == nil {
 			continue
 		}
 		out = append(out, model.CompilerProvider{
-			Name:           item.name,
-			Version:        item.block.Version,
-			Prefix:         item.block.Prefix,
+			Name:           name,
+			Version:        block.Version,
+			Prefix:         block.Prefix,
 			ProviderFamily: "platform",
 			PlatformFamily: "cray-pe",
 			Languages:      langs,
-			Modules:        item.block.Modules,
+			Modules:        block.Modules,
 		})
 	}
 	return out
@@ -243,7 +221,7 @@ func applyVerifiedCrayMPICH(vendor *crayPEInventory, candidates []ModuleCandidat
 				appendEvidence(evidenceMap, "mpi_providers.platform.cray-pe.cray-mpich.verify_failed."+flavor, evidence(model.ConfidenceUnknown, "module loaded but MPICH prefix unavailable"))
 				continue
 			}
-			vendor.CrayMPICH.Version = firstNonEmptyString(verification.Env["CRAY_MPICH_VERSION"], version)
+			vendor.CrayMPICH.Version = firstNonEmptyString(firstNonEmptyString(mpiVersionEnvValues("cray-mpich", verification)...), version)
 			vendor.CrayMPICH.Flavors[flavor] = crayMPICHFlavor{Prefix: prefix, Modules: []string{mpichModule}}
 			appendEvidence(evidenceMap, "mpi_providers.platform.cray-pe.cray-mpich."+flavor, evidence(model.ConfidenceProbed, "clean-shell module verification"))
 		}
@@ -251,27 +229,12 @@ func applyVerifiedCrayMPICH(vendor *crayPEInventory, candidates []ModuleCandidat
 }
 
 func crayFlavorFromModule(module string) string {
-	switch {
-	case moduleHasSegmentPrefix(module, "prgenv-cray") || moduleHasSegment(module, "cce"):
-		return "cce"
-	case moduleHasSegmentPrefix(module, "prgenv-gnu") || moduleHasSegment(module, "gcc-native"):
-		return "gcc"
-	case moduleHasSegmentPrefix(module, "prgenv-aocc") || moduleHasSegment(module, "aocc"):
-		return "aocc"
-	case moduleHasSegmentPrefix(module, "prgenv-intel") || moduleHasSegment(module, "intel"):
-		return "intel"
-	case moduleHasSegmentPrefix(module, "prgenv-amd") || moduleHasSegment(module, "rocm", "rocmcc"):
-		return "rocmcc"
-	case moduleHasSegmentPrefix(module, "prgenv-nvidia") || moduleHasSegment(module, "nvhpc"):
-		return "nvhpc"
-	default:
-		return ""
-	}
+	return compilerNameFromModule(module)
 }
 
 func crayCompilerModuleSet(flavor, module string) []string {
 	moduleSet := []string{}
-	if prgEnv := compilerProgramEnvironmentModule(crayCompilerName(flavor)); prgEnv != "" {
+	if prgEnv := compilerProgramEnvironmentModule(flavor); prgEnv != "" {
 		moduleSet = append(moduleSet, prgEnv)
 	}
 	if !moduleHasSegmentPrefix(module, crayPEPolicy().ModulePrefixes...) {
@@ -281,7 +244,7 @@ func crayCompilerModuleSet(flavor, module string) []string {
 }
 
 func crayCompilerFromVerification(flavor, module string, verification moduleVerification) (*crayCompilerBlock, bool) {
-	name := crayCompilerName(flavor)
+	name := flavor
 	prefix := compilerPrefixFromVerification(name, verification)
 	if prefix == "" && flavor == "cce" {
 		prefix = verification.Env["CRAY_PE_CCE_PREFIX"]
@@ -289,78 +252,47 @@ func crayCompilerFromVerification(flavor, module string, verification moduleVeri
 	if prefix == "" {
 		return nil, false
 	}
-	version := firstNonEmptyString(crayCompilerVersionFromEnv(flavor, verification), moduleVersion(module), firstVersion(prefix))
+	version := firstNonEmptyString(firstNonEmptyString(compilerVersionEnvValues(name, verification)...), moduleVersion(module), firstVersion(prefix))
 	if version == "" {
 		version = "unknown"
 	}
 	return &crayCompilerBlock{Version: version, Prefix: prefix, Modules: verification.Modules}, true
 }
 
-func crayCompilerName(flavor string) string {
-	switch flavor {
-	case "cce":
-		return "cce"
-	case "gcc":
-		return "gcc"
-	case "aocc":
-		return "aocc"
-	case "intel":
-		return "intel"
-	case "rocmcc":
-		return "rocmcc"
-	case "nvhpc":
-		return "nvhpc"
-	default:
-		return ""
-	}
-}
-
-func crayCompilerVersionFromEnv(flavor string, verification moduleVerification) string {
-	if flavor == "cce" {
-		return verification.Env["CRAY_CC_VERSION"]
-	}
-	return ""
-}
-
 func setCrayCompiler(vendor *crayPEInventory, flavor string, compiler *crayCompilerBlock) {
-	switch flavor {
-	case "cce":
-		vendor.CCE = compiler
-	case "gcc":
-		vendor.GCC = compiler
-	case "aocc":
-		vendor.AOCC = compiler
-	case "intel":
-		vendor.Intel = compiler
-	case "rocmcc":
-		vendor.ROCmCC = compiler
-	case "nvhpc":
-		vendor.NVHPC = compiler
+	if vendor == nil || compiler == nil || flavor == "" {
+		return
 	}
+	if vendor.Compilers == nil {
+		vendor.Compilers = map[string]*crayCompilerBlock{}
+	}
+	vendor.Compilers[flavor] = compiler
 }
 
 func getCrayCompiler(vendor *crayPEInventory, flavor string) *crayCompilerBlock {
-	switch flavor {
-	case "cce":
-		return vendor.CCE
-	case "gcc":
-		return vendor.GCC
-	case "aocc":
-		return vendor.AOCC
-	case "intel":
-		return vendor.Intel
-	case "rocmcc":
-		return vendor.ROCmCC
-	case "nvhpc":
-		return vendor.NVHPC
-	default:
+	if vendor == nil {
 		return nil
 	}
+	return vendor.Compilers[flavor]
+}
+
+func sortedCrayCompilerNames(vendor *crayPEInventory) []string {
+	if vendor == nil {
+		return nil
+	}
+	names := make([]string, 0, len(vendor.Compilers))
+	for name, compiler := range vendor.Compilers {
+		if compiler != nil {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 func verifiedCrayCompilerFlavors(vendor *crayPEInventory) []string {
 	flavors := []string{}
-	for _, flavor := range []string{"cce", "gcc", "aocc", "intel", "rocmcc", "nvhpc"} {
+	for _, flavor := range sortedCrayCompilerNames(vendor) {
 		compiler := getCrayCompiler(vendor, flavor)
 		if compiler != nil && len(compiler.Modules) > 0 {
 			flavors = append(flavors, flavor)
@@ -438,8 +370,8 @@ func crayCompiler(name, envPrefix, fallbackRoot string, modules []string) *crayC
 }
 
 func crayMPICH() *crayMPICHBlock {
-	version := os.Getenv("CRAY_MPICH_VERSION")
-	prefix := os.Getenv("MPICH_DIR")
+	version := firstNonEmptyEnv(mpiVersionEnvKeys("cray-mpich")...)
+	prefix := firstNonEmptyEnv(mpiEnvKeys("cray-mpich")...)
 	if version == "" && prefix != "" {
 		version = firstVersion(prefix)
 	}
@@ -465,22 +397,10 @@ func crayMPICH() *crayMPICHBlock {
 }
 
 func crayCompilerFlavor() string {
-	switch os.Getenv("PE_ENV") {
-	case "GNU":
-		return "gcc"
-	case "CRAY":
-		return "cce"
-	case "AOCC":
-		return "aocc"
-	case "INTEL":
-		return "intel"
-	case "AMD":
-		return "rocmcc"
-	case "NVIDIA":
-		return "nvhpc"
-	default:
-		return "unknown"
+	if name := platformProviderFromEnv(crayPEPolicy(), "PE_ENV", os.Getenv("PE_ENV")); name != "" {
+		return name
 	}
+	return "unknown"
 }
 
 func firstNonEmptyEnv(names ...string) string {
@@ -490,23 +410,4 @@ func firstNonEmptyEnv(names ...string) string {
 		}
 	}
 	return ""
-}
-
-func crayLibSci() *crayLibSciBlock {
-	prefix := os.Getenv("CRAY_LIBSCI_PREFIX_DIR")
-	libsciRoot := filepath.Join(crayPEPolicy().PERoot, "libsci")
-	if prefix == "" && isDir(libsciRoot) {
-		version := latestChildVersion(libsciRoot)
-		if version != "" {
-			prefix = filepath.Join(libsciRoot, version)
-		}
-	}
-	if prefix == "" {
-		return nil
-	}
-	version := os.Getenv("CRAY_LIBSCI_VERSION")
-	if version == "" {
-		version = firstVersion(prefix)
-	}
-	return &crayLibSciBlock{Version: version, Prefix: prefix}
 }

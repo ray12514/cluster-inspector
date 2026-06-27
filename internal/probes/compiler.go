@@ -72,7 +72,7 @@ func verifiedCompilerModules(candidates []ModuleCandidate, hints *inspectorhints
 	compilers := []compilerExternal{}
 	for _, module := range accepted {
 		name := compilerNameFromModule(module)
-		if name == "" || isCrayCompilerModule(module) {
+		if name == "" || isPlatformOwnedCompilerModule(module) {
 			continue
 		}
 		verification, err := verifyModules([]string{module})
@@ -97,6 +97,9 @@ func compilerExternalFromVerification(name, module string, verification moduleVe
 		return compilerExternal{}, false
 	}
 	version := moduleVersion(module)
+	if version == "" {
+		version = firstNonEmptyString(compilerVersionEnvValues(name, verification)...)
+	}
 	if version == "" {
 		version = firstVersion(prefix)
 	}
@@ -164,7 +167,7 @@ func compilerNameFromModule(module string) string {
 	return ""
 }
 
-func isCrayCompilerModule(module string) bool {
+func isPlatformOwnedCompilerModule(module string) bool {
 	for _, item := range policy().Compilers {
 		if !item.PlatformOwned {
 			continue
@@ -173,8 +176,12 @@ func isCrayCompilerModule(module string) bool {
 			return true
 		}
 	}
-	platform := crayPEPolicy()
-	return moduleHasSegmentPrefix(module, platform.ModulePrefixes...) || moduleHasSegment(module, platform.ModuleSegments...)
+	for _, platform := range platformPolicies() {
+		if moduleHasSegmentPrefix(module, platform.ModulePrefixes...) || moduleHasSegment(module, platform.ModuleSegments...) {
+			return true
+		}
+	}
+	return false
 }
 
 func compilerEnvKeys(name string) []string {
@@ -182,6 +189,15 @@ func compilerEnvKeys(name string) []string {
 		return item.Env
 	}
 	return nil
+}
+
+func compilerVersionEnvValues(name string, verification moduleVerification) []string {
+	keys := compilerVersionEnvKeys(name)
+	values := make([]string, 0, len(keys))
+	for _, env := range keys {
+		values = append(values, verification.Env[env])
+	}
+	return values
 }
 
 func compilerCommands(name string) []string {

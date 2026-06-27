@@ -48,7 +48,7 @@ merged with per-node fragments by the merge command.`,
 func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.SystemFragment {
 	system := probes.ProbeSystem(systemName)
 	modules := probes.ProbeModules()
-	fabric := probes.ProbeFabric()
+	fabric := probes.ProbeFabricWithModules(modules.Candidates, hints)
 	providers := probes.ProbeProviderInventory(modules.Candidates, hints)
 	systemExternals := probes.ProbeSystemExternals(hints)
 	filesystem := probes.ProbeFilesystem()

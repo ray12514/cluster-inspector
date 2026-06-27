@@ -35,8 +35,32 @@ func TestDiscoveryPolicyLoadsCoreProviderRules(t *testing.T) {
 	if len(p.Filesystem.ScratchProbeRoots) == 0 {
 		t.Fatal("expected scratch filesystem probe roots")
 	}
+	if len(p.Fabric.UserspaceCandidates) == 0 {
+		t.Fatal("expected fabric userspace candidates")
+	}
+	if got := fabricUserspaceNameFromModule("ofi/libfabric/1.22.0"); got != "libfabric" {
+		t.Fatalf("fabricUserspaceNameFromModule(libfabric) = %q, want libfabric", got)
+	}
 	if !mpiPolicyPlatformOwned("cray-mpich") {
 		t.Fatal("expected cray-mpich to be platform-owned")
+	}
+	if stringSliceContains(compilerEnvKeys("cce"), "CRAY_CC_VERSION") {
+		t.Fatal("CRAY_CC_VERSION must be a compiler version env key, not a prefix env key")
+	}
+	if !stringSliceContains(compilerVersionEnvKeys("cce"), "CRAY_CC_VERSION") {
+		t.Fatal("expected CCE version env key from policy")
+	}
+	if stringSliceContains(mpiEnvKeys("cray-mpich"), "CRAY_MPICH_VERSION") {
+		t.Fatal("CRAY_MPICH_VERSION must be an MPI version env key, not a prefix env key")
+	}
+	if !stringSliceContains(mpiVersionEnvKeys("cray-mpich"), "CRAY_MPICH_VERSION") {
+		t.Fatal("expected Cray MPICH version env key from policy")
+	}
+	if got := platformProviderFromEnv(p.Platforms["cray-pe"], "PE_ENV", "GNU"); got != "gcc" {
+		t.Fatalf("PE_ENV mapping came from policy as %q, want gcc", got)
+	}
+	if _, ok := systemExternalPolicyByName("cray-libsci"); !ok {
+		t.Fatal("expected cray-libsci external candidate policy")
 	}
 }
 
@@ -91,13 +115,13 @@ func componentPackagesContain(components []model.SpackComponent, want string) bo
 
 func TestModuleVerificationInputsComeFromPolicy(t *testing.T) {
 	envKeys := moduleVerificationEnvKeys()
-	for _, want := range []string{"ROCM_PATH", "AOCC_HOME", "CRAYPE_VERSION", "MPICH_DIR"} {
+	for _, want := range []string{"ROCM_PATH", "AOCC_HOME", "CRAYPE_VERSION", "MPICH_DIR", "CRAY_CC_VERSION", "CRAY_MPICH_VERSION", "CRAY_LIBSCI_PREFIX_DIR"} {
 		if !stringSliceContains(envKeys, want) {
 			t.Fatalf("module verification env keys missing %s: %#v", want, envKeys)
 		}
 	}
 	commands := moduleVerificationCommands()
-	for _, want := range []string{"hipcc", "mpicc", "amdclang", "gcc"} {
+	for _, want := range []string{"hipcc", "mpicc", "amdclang", "gcc", "fi_info", "ucx_info"} {
 		if !stringSliceContains(commands, want) {
 			t.Fatalf("module verification commands missing %s: %#v", want, commands)
 		}

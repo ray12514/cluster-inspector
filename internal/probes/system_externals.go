@@ -1,6 +1,7 @@
 package probes
 
 import (
+	"path/filepath"
 	"strings"
 
 	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
@@ -71,11 +72,62 @@ func probeFocusedSystemExternal(
 			}
 		}
 	}
+	if external, ok := probePolicySystemExternal(name, evidenceMap); ok {
+		return external, true
+	}
 	if external, ok := probeSystemPackageManagerExternal(name, evidenceMap); ok {
 		return external, true
 	}
 	appendEvidence(evidenceMap, "system_externals."+name, evidence(model.ConfidenceUnknown, "not found"))
 	return model.SystemExternal{}, false
+}
+
+func probePolicySystemExternal(
+	name string,
+	evidenceMap map[string]model.Evidence,
+) (model.SystemExternal, bool) {
+	item, ok := systemExternalPolicyByName(name)
+	if !ok {
+		return model.SystemExternal{}, false
+	}
+	prefix := firstNonEmptyEnv(item.Env...)
+	if prefix == "" {
+		prefix = firstExistingVersionedRoot(item.Roots...)
+	}
+	if prefix == "" {
+		return model.SystemExternal{}, false
+	}
+	version := firstNonEmptyEnv(item.VersionEnv...)
+	if version == "" {
+		version = firstVersion(prefix)
+	}
+	if version == "" {
+		version = "unknown"
+	}
+	providerFamily := item.ProviderFamily
+	if providerFamily == "" {
+		providerFamily = providerFamilyFromPrefix(prefix)
+	}
+	external := systemExternal(name, version, prefix, "probed", "discovery policy")
+	external.ProviderFamily = providerFamily
+	if item.ModuleTemplate != "" && version != "unknown" {
+		external.Modules = []string{strings.ReplaceAll(item.ModuleTemplate, "{version}", version)}
+	}
+	appendEvidence(evidenceMap, "system_externals."+name, evidence(model.ConfidenceProbed, "discovery policy"))
+	return external, true
+}
+
+func firstExistingVersionedRoot(roots ...string) string {
+	for _, root := range roots {
+		if root == "" || !isDir(root) {
+			continue
+		}
+		if version := latestChildVersion(root); version != "" {
+			return filepath.Join(root, version)
+		}
+		return root
+	}
+	return ""
 }
 
 func probeSystemPackageManagerExternal(

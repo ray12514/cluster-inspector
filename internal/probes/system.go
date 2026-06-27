@@ -115,7 +115,14 @@ func probeGlibc(evidenceMap map[string]model.Evidence) string {
 }
 
 func detectCrayEvidence() bool {
-	platform := crayPEPolicy()
+	platform, ok := platformPolicyByFamily("cray-pe")
+	if !ok {
+		return false
+	}
+	return detectPlatformEvidence(platform)
+}
+
+func detectPlatformEvidence(platform platformPolicy) bool {
 	for _, path := range platform.EvidencePaths {
 		if isDir(path) {
 			return true
@@ -126,12 +133,12 @@ func detectCrayEvidence() bool {
 			return true
 		}
 	}
-	return loadedCrayModuleEvidence()
+	return loadedPlatformModuleEvidence(platform)
 }
 
-func loadedCrayModuleEvidence() bool {
+func loadedPlatformModuleEvidence(platform platformPolicy) bool {
 	loaded := strings.ToLower(os.Getenv("LOADEDMODULES") + " " + os.Getenv("_LMFILES_"))
-	for _, token := range crayPEPolicy().EvidenceLoadedModuleTokens {
+	for _, token := range platform.EvidenceLoadedModuleTokens {
 		if strings.Contains(loaded, token) {
 			return true
 		}

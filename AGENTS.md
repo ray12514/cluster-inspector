@@ -12,6 +12,7 @@ that the renderer (`stack-composer`) consumes.
 | Need to implement a specific profile-field probe | `stack-planning/docs/cluster_inspector_profile_extraction_map_v1.md` |
 | Need to know what a valid `profile.yaml` looks like | `stack-planning/schemas/profile-v1.json` + tracked examples under `tests/fixtures/*/profile.yaml` |
 | Need to change probe architecture or discovery policy | `docs/design-audit-v1.md` |
+| Need to add discovery-policy vocabulary or hints | `docs/discovery-policy-guide.md` |
 | Need to change ROCm component discovery | `docs/rocm-component-discovery-v1.md` |
 | Want to mine probe-logic patterns from a working tool | The old Python `clusterinspector` at `github.com/ray12514/clusterinspector`. Clone adjacent to this repo if you'll port from it. |
 

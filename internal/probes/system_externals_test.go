@@ -54,6 +54,33 @@ func TestProbeSystemExternalsHonorsHintsFocus(t *testing.T) {
 	}
 }
 
+func TestProbeSystemExternalsEmitsPolicyBackedLibSci(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("CRAY_LIBSCI_PREFIX_DIR", "/opt/cray/pe/libsci/24.03.0")
+	t.Setenv("CRAY_LIBSCI_VERSION", "24.03.0")
+
+	result := ProbeSystemExternals(&inspectorhints.Hints{
+		SchemaVersion: 1,
+		SystemExternals: inspectorhints.ModuleHints{
+			Include: []string{"cray-libsci"},
+		},
+	})
+
+	if len(result.Externals) != 1 {
+		t.Fatalf("expected 1 external, got %#v", result.Externals)
+	}
+	external := result.Externals[0]
+	if external.Name != "cray-libsci" || external.Version != "24.03.0" {
+		t.Fatalf("unexpected libsci external: %#v", external)
+	}
+	if external.ProviderFamily != "platform" {
+		t.Fatalf("libsci provider_family = %q, want platform", external.ProviderFamily)
+	}
+	if len(external.Modules) != 1 || external.Modules[0] != "cray-libsci/24.03.0" {
+		t.Fatalf("unexpected libsci modules: %#v", external.Modules)
+	}
+}
+
 func writeExecutable(t *testing.T, path string, body string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {

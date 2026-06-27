@@ -1,6 +1,11 @@
 package probes
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/ray12514/cluster-inspector/internal/model"
+)
 
 func TestRpmPackageVersion(t *testing.T) {
 	cases := []struct {
@@ -42,4 +47,46 @@ func TestRpmPackageVersion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProbeFabricUserspaceUsesDiscoveryPolicyCommands(t *testing.T) {
+	bin := t.TempDir()
+	writeExecutable(t, filepath.Join(bin, "fi_info"), "#!/bin/sh\necho 'libfabric: 1.22.0'\n")
+	writeExecutable(t, filepath.Join(bin, "ucx_info"), "#!/bin/sh\necho '# UCT version=1.16.0'\n")
+	t.Setenv("PATH", bin)
+
+	result := ProbeFabric()
+
+	if !fabricUserspaceContains(result.Fabric.Userspace, "libfabric", "1.22.0", bin) {
+		t.Fatalf("missing policy-discovered libfabric userspace: %#v", result.Fabric.Userspace)
+	}
+	if !fabricUserspaceContains(result.Fabric.Userspace, "ucx", "1.16.0", bin) {
+		t.Fatalf("missing policy-discovered ucx userspace: %#v", result.Fabric.Userspace)
+	}
+}
+
+func TestFabricUserspaceFromVerificationUsesModuleAndCommandPrefix(t *testing.T) {
+	verification := moduleVerification{
+		Commands: map[string]string{
+			"fi_info": "/opt/ofi/libfabric/1.22.0/bin/fi_info",
+		},
+		Env: map[string]string{},
+	}
+
+	item, ok := fabricUserspaceFromVerification("libfabric", "libfabric/1.22.0", verification)
+	if !ok {
+		t.Fatal("expected module verification to produce libfabric userspace")
+	}
+	if item.Name != "libfabric" || item.Version != "1.22.0" || item.Prefix != "/opt/ofi/libfabric/1.22.0" {
+		t.Fatalf("unexpected fabric userspace item: %#v", item)
+	}
+}
+
+func fabricUserspaceContains(items []model.NamedPrefixVersioned, name string, version string, prefix string) bool {
+	for _, item := range items {
+		if item.Name == name && item.Version == version && item.Prefix == prefix {
+			return true
+		}
+	}
+	return false
 }

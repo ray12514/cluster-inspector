@@ -45,7 +45,8 @@ compilers:
     cc: [cc]
     cxx: [CC]
     fortran: [ftn]
-    env: [CRAY_PE_CCE_PREFIX, CRAY_CC_VERSION]
+    env: [CRAY_PE_CCE_PREFIX]
+    version_env: [CRAY_CC_VERSION]
     module_segments: [cce]
     module_name_prefixes: [PrgEnv-cray]
     platform_owned: true
@@ -61,7 +62,8 @@ compilers:
 mpi:
   - name: cray-mpich
     module_segments: [cray-mpich]
-    env: [MPICH_DIR, CRAY_MPICH_VERSION]
+    env: [MPICH_DIR]
+    version_env: [CRAY_MPICH_VERSION]
     platform_owned: true
   - name: openmpi
     module_segments: [openmpi]
@@ -176,7 +178,14 @@ gpu_toolkits:
     module_template: "nvhpc/{version}"
 
 system_externals:
-  default_focus: [openssl, curl]
+  default_focus: [openssl, curl, cray-libsci]
+  external_candidates:
+    - name: cray-libsci
+      provider_family: platform
+      env: [CRAY_LIBSCI_PREFIX_DIR]
+      version_env: [CRAY_LIBSCI_VERSION]
+      roots: [/opt/cray/pe/libsci]
+      module_template: "cray-libsci/{version}"
 
 filesystem:
   shared_probe_roots: [/shared, /apps, /gpfs, /lustre, /project, /projects, /work]
@@ -186,6 +195,17 @@ fabric:
   cxi_device_paths: [/sys/class/cxi, /dev/cxi]
   cxi_userspace_roots: [/opt/cray/pe/cxi]
   infiniband_class_path: /sys/class/infiniband
+  userspace_candidates:
+    - name: libfabric
+      commands: [fi_info]
+      version_commands:
+        - [fi_info, --version]
+      module_segments: [libfabric]
+    - name: ucx
+      commands: [ucx_info]
+      version_commands:
+        - [ucx_info, -v]
+      module_segments: [ucx]
 
 platforms:
   cray-pe:
@@ -198,3 +218,11 @@ platforms:
     module_segments: [cray-mpich, cray-libsci]
     module_name_prefixes: [prgenv-, craype-]
     pe_root: /opt/cray/pe
+    provider_env_mappings:
+      PE_ENV:
+        GNU: gcc
+        CRAY: cce
+        AOCC: aocc
+        INTEL: intel
+        AMD: rocmcc
+        NVIDIA: nvhpc

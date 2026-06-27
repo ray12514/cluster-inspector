@@ -100,6 +100,9 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 	}
 	version := moduleVersion(module)
 	if version == "" {
+		version = firstNonEmptyString(mpiVersionEnvValues(name, verification)...)
+	}
+	if version == "" {
 		version = firstVersion(prefix)
 	}
 	if version == "" {
@@ -115,12 +118,25 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 }
 
 func mpiEnvValues(name string, verification moduleVerification) []string {
-	item, ok := mpiPolicyByName(name)
-	if !ok {
-		return nil
+	keys := mpiEnvKeys(name)
+	values := make([]string, 0, len(keys))
+	for _, env := range keys {
+		values = append(values, verification.Env[env])
 	}
-	values := make([]string, 0, len(item.Env))
-	for _, env := range item.Env {
+	return values
+}
+
+func mpiEnvKeys(name string) []string {
+	if item, ok := mpiPolicyByName(name); ok {
+		return item.Env
+	}
+	return nil
+}
+
+func mpiVersionEnvValues(name string, verification moduleVerification) []string {
+	keys := mpiVersionEnvKeys(name)
+	values := make([]string, 0, len(keys))
+	for _, env := range keys {
 		values = append(values, verification.Env[env])
 	}
 	return values

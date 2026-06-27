@@ -85,15 +85,26 @@ done
 
 func moduleVerificationEnvKeys() []string {
 	keys := []string{}
-	keys = append(keys, crayPEPolicy().EvidenceEnv...)
+	for _, platform := range platformPolicies() {
+		keys = append(keys, platform.EvidenceEnv...)
+	}
 	for _, compiler := range policy().Compilers {
 		keys = append(keys, compiler.Env...)
+		keys = append(keys, compiler.VersionEnv...)
 	}
 	for _, mpi := range policy().MPI {
 		keys = append(keys, mpi.Env...)
+		keys = append(keys, mpi.VersionEnv...)
 	}
 	for _, toolkit := range policy().GPUToolkits {
 		keys = append(keys, toolkit.Env...)
+	}
+	for _, userspace := range policy().Fabric.UserspaceCandidates {
+		keys = append(keys, userspace.Env...)
+	}
+	for _, external := range policy().SystemExternals.ExternalCandidates {
+		keys = append(keys, external.Env...)
+		keys = append(keys, external.VersionEnv...)
 	}
 	return uniqueStrings(keys)
 }
@@ -107,6 +118,9 @@ func moduleVerificationCommands() []string {
 	}
 	for _, toolkit := range policy().GPUToolkits {
 		commands = append(commands, toolkit.Commands...)
+	}
+	for _, userspace := range policy().Fabric.UserspaceCandidates {
+		commands = append(commands, userspace.Commands...)
 	}
 	return uniqueStrings(commands)
 }

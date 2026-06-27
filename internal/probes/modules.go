@@ -319,7 +319,7 @@ func segmentCategoriesForModule(name string) []string {
 	if gpuToolkitNameFromModule(name) != "" {
 		categories = append(categories, "gpu_toolkit")
 	}
-	if moduleHasSegment(name, "libfabric", "ucx", "cxi") {
+	if fabricUserspaceNameFromModule(name) != "" || moduleHasSegment(name, "cxi") {
 		categories = append(categories, "fabric_userspace")
 	}
 	for _, platform := range policy().Platforms {
@@ -359,7 +359,7 @@ func fallbackModulePatterns() modulePatternFile {
 		"compiler":         {},
 		"mpi":              {},
 		"gpu_toolkit":      {},
-		"fabric_userspace": {"libfabric/*", "*/libfabric/*", "ucx/*", "*/ucx/*", "cxi/*", "*/cxi/*"},
+		"fabric_userspace": {"cxi/*", "*/cxi/*"},
 	}
 	for _, item := range policy().Compilers {
 		for _, segment := range item.ModuleSegments {
@@ -377,6 +377,11 @@ func fallbackModulePatterns() modulePatternFile {
 	for _, item := range policy().GPUToolkits {
 		for _, segment := range item.ModuleSegments {
 			categories["gpu_toolkit"] = append(categories["gpu_toolkit"], segment+"/*", "*/"+segment+"/*")
+		}
+	}
+	for _, item := range policy().Fabric.UserspaceCandidates {
+		for _, segment := range item.ModuleSegments {
+			categories["fabric_userspace"] = append(categories["fabric_userspace"], segment+"/*", "*/"+segment+"/*")
 		}
 	}
 	for category, platform := range policy().Platforms {

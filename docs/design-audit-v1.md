@@ -31,7 +31,7 @@ The facts-versus-policy split is:
 | Profile model/validation | Go structs + embedded schema | Good seam. Schema remains owned by `stack-planning`. | Keep synced; do not fork schema semantics locally. |
 | Provider inventory | `ProbeProviderInventory(candidates, hints)` | Correct seam. It hides generic Linux plus platform adapters behind one interface. | Keep as the only caller-facing provider probe. |
 | Generic Linux provider discovery | compiler/MPI/GPU probes using discovery policy | Good direction, but still needs clearer policy semantics. | Tighten policy naming/docs and tests. |
-| Platform discovery | `cray.go` adapter | Acceptable as an adapter, but it still contains several Cray-specific env/module facts. That is okay only inside the adapter. | Keep isolated; do not let generic probes call Cray helpers. |
+| Platform discovery | `ProbeProviderInventory` plus platform policy | Needs correction. The profile output is generic, but `cray.go` still owns too much provider vocabulary and flavor mapping in Go code. | Move platform vocabulary and mappings into `discovery_policy.yaml`; keep Go code focused on generic probing mechanics. |
 | Discovery policy | `internal/resources/discovery_policy.yaml` | Useful, but name and field semantics can be mistaken for stack-selection policy. | Clarify as discovery vocabulary/candidate mapping only. Ambiguous module/filesystem field names were corrected after this audit. |
 | Module verification | `verifyModules([]string)` returns env/command observations | Useful internal seam. It should remain non-login and policy-driven. | Keep; avoid adding provider-specific shell scripts. |
 | Filesystem probing | emits `install_tree_candidates` from explicit candidate hints and observed shared roots | Profile may offer candidates, but install tree is installer-owned in `deployment.yaml`. | Keep observation-based shared filesystem candidates; do not add selected deployment paths here. |
@@ -47,12 +47,38 @@ The facts-versus-policy split is:
 - common Linux defaults that are broadly useful as probes; and
 - platform-owned vocabulary used by provider adapters.
 
+See `docs/discovery-policy-guide.md` for the operational rules on when a
+change is YAML-only and when Go code is required.
+
 It must not mean:
 
 - “use this external in the rendered stack”;
 - “this is the complete stack policy”;
 - “these module names are the only valid spellings”; or
 - “these paths are installer choices.”
+
+## Platform discovery rule before v1
+
+Platform-specific code must be the smallest possible adapter behind
+`ProbeProviderInventory`. Platform facts such as module-name prefixes, PE
+environment variables, provider names, compiler mappings, owned prefixes,
+common roots, and candidate externals belong in `discovery_policy.yaml` unless
+they require live interrogation of the target system.
+
+For Cray PE/CPE this means:
+
+- `PrgEnv-*`, `cray-mpich`, `cray-libsci`, `/opt/cray`, `PE_ENV`, and
+  `CRAY_*` names are valid discovery vocabulary, but should normally be policy
+  data rather than scattered Go literals.
+- Clean-shell module verification may remain in Go because it is probing
+  behavior, not vocabulary.
+- Per-compiler MPI flavor discovery may remain in Go only as a generic
+  algorithm: load compiler-provider modules, load the MPI module, collect
+  configured env/command evidence, and emit generic `mpi_providers`.
+- Cray LibSci should be emitted as a generic external candidate when detected;
+  finding it is a platform fact, choosing to use it is Stack Composer policy.
+- Adding new Cray-specific Go requires a nearby test or doc note explaining why
+  the generic Linux/module probe plus policy data cannot supply the fact.
 
 Field naming cleanup to consider before v1:
 
