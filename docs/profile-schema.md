@@ -28,10 +28,10 @@ Profiles contain observed facts only:
 - `os`
 - `fabric`
 - `modules_system`
-- `vendor_cray`
-- `compilers_external`
-- `mpi`
+- `compiler_providers`
+- `mpi_providers`
 - `gpu_toolkit_modules`
+- `system_externals`
 - `filesystem`
 - `node_types`
 
@@ -39,15 +39,14 @@ The inspector does not emit stack capabilities. Capability derivation belongs to
 `stack-composer` because it depends on profile facts, template contracts, and
 stack intent.
 
-## Cray NVIDIA Naming
+## Platform NVIDIA Naming
 
-For current Cray PE NVIDIA systems, record the compiler under
-`vendor_cray.nvhpc` because that is the Spack/compiler identity, but the module
-list should use current CPE names such as `PrgEnv-nvidia` and
-`nvidia/<version>`. CUDA toolkit facts belong under
-`gpu_toolkit_modules.cudatoolkit` with the current CPE module name
-`cuda/<version>`. Legacy `PrgEnv-nvhpc` naming is not part of the v1 support
-target unless a real deployment requires a compatibility extension.
+For current platform NVIDIA environments, record the compiler as an `nvhpc`
+entry in `compiler_providers` because that is the Spack/compiler identity.
+Module lists should use the actual modules observed on the system, such as
+`PrgEnv-nvidia` plus `nvidia/<version>` on current Cray PE/CPE systems. CUDA
+toolkit facts belong under `gpu_toolkit_modules.cudatoolkit` with the observed
+CUDA toolkit module name, such as `cuda/<version>`.
 
 ## Local Fixtures
 

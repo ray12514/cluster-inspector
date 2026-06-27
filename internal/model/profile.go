@@ -51,31 +51,15 @@ type ModulesSystem struct {
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
-type CompilerExternal struct {
-	Name      string   `json:"name" yaml:"name"`
-	Version   string   `json:"version" yaml:"version"`
-	Prefix    string   `json:"prefix" yaml:"prefix"`
-	Modules   []string `json:"modules,omitempty" yaml:"modules,omitempty"`
-	Languages []string `json:"languages" yaml:"languages"`
-}
-
-type MPIExternal struct {
-	Name       string   `json:"name" yaml:"name"`
-	Provenance string   `json:"provenance" yaml:"provenance"`
-	Version    string   `json:"version" yaml:"version"`
-	Prefix     string   `json:"prefix" yaml:"prefix"`
-	Compiler   string   `json:"compiler,omitempty" yaml:"compiler,omitempty"`
-	Modules    []string `json:"modules,omitempty" yaml:"modules,omitempty"`
-}
-
 // CompilerProvider is a compiler external tagged with its provider family
-// (cray-pe, platform, site, system). This is the generic, emitted shape; the
-// probes detect family-specific facts and a transform produces these.
+// (platform, site, system). PlatformFamily names an optional platform-specific
+// provider such as cray-pe without making it part of the generic family axis.
 type CompilerProvider struct {
 	Name           string            `json:"name" yaml:"name"`
 	Version        string            `json:"version" yaml:"version"`
 	Prefix         string            `json:"prefix" yaml:"prefix"`
 	ProviderFamily string            `json:"provider_family" yaml:"provider_family"`
+	PlatformFamily string            `json:"platform_family,omitempty" yaml:"platform_family,omitempty"`
 	Languages      []string          `json:"languages" yaml:"languages"`
 	Modules        []string          `json:"modules,omitempty" yaml:"modules,omitempty"`
 	Compilers      *CompilerCommands `json:"compilers,omitempty" yaml:"compilers,omitempty"`
@@ -94,6 +78,7 @@ type MPIProvider struct {
 	Name           string               `json:"name" yaml:"name"`
 	Version        string               `json:"version" yaml:"version"`
 	ProviderFamily string               `json:"provider_family" yaml:"provider_family"`
+	PlatformFamily string               `json:"platform_family,omitempty" yaml:"platform_family,omitempty"`
 	Prefix         string               `json:"prefix,omitempty" yaml:"prefix,omitempty"`
 	Modules        []string             `json:"modules,omitempty" yaml:"modules,omitempty"`
 	Compiler       string               `json:"compiler,omitempty" yaml:"compiler,omitempty"`
@@ -110,39 +95,6 @@ type MPICompatibility struct {
 type MPIFlavor struct {
 	Prefix  string   `json:"prefix" yaml:"prefix"`
 	Modules []string `json:"modules" yaml:"modules"`
-}
-
-type VendorCray struct {
-	PEVersion string             `json:"pe_version" yaml:"pe_version"`
-	CCE       *CrayCompilerBlock `json:"cce,omitempty" yaml:"cce,omitempty"`
-	GCC       *CrayCompilerBlock `json:"gcc,omitempty" yaml:"gcc,omitempty"`
-	AOCC      *CrayCompilerBlock `json:"aocc,omitempty" yaml:"aocc,omitempty"`
-	Intel     *CrayCompilerBlock `json:"intel,omitempty" yaml:"intel,omitempty"`
-	ROCmCC    *CrayCompilerBlock `json:"rocmcc,omitempty" yaml:"rocmcc,omitempty"`
-	NVHPC     *CrayCompilerBlock `json:"nvhpc,omitempty" yaml:"nvhpc,omitempty"`
-	CrayMPICH *CrayMPICHBlock    `json:"cray_mpich,omitempty" yaml:"cray_mpich,omitempty"`
-	LibSci    *CrayLibSciBlock   `json:"libsci,omitempty" yaml:"libsci,omitempty"`
-}
-
-type CrayCompilerBlock struct {
-	Version string   `json:"version" yaml:"version"`
-	Prefix  string   `json:"prefix" yaml:"prefix"`
-	Modules []string `json:"modules" yaml:"modules"`
-}
-
-type CrayMPICHBlock struct {
-	Version string                     `json:"version" yaml:"version"`
-	Flavors map[string]CrayMPICHFlavor `json:"flavors" yaml:"flavors"`
-}
-
-type CrayMPICHFlavor struct {
-	Prefix  string   `json:"prefix" yaml:"prefix"`
-	Modules []string `json:"modules" yaml:"modules"`
-}
-
-type CrayLibSciBlock struct {
-	Version string `json:"version,omitempty" yaml:"version,omitempty"`
-	Prefix  string `json:"prefix,omitempty" yaml:"prefix,omitempty"`
 }
 
 type GPUToolkitModules struct {

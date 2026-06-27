@@ -51,7 +51,7 @@ func TestValidateProfileSemanticsRejectsAMDWithoutROCm(t *testing.T) {
 func TestValidateProfileSemanticsRejectsMPIFlavorWithoutCompilerProvider(t *testing.T) {
 	profile := minimalSemanticProfile()
 	profile.MPIProviders = []model.MPIProvider{{
-		Name: "cray-mpich", Version: "8.1.29", ProviderFamily: "cray-pe",
+		Name: "cray-mpich", Version: "8.1.29", ProviderFamily: "platform", PlatformFamily: "cray-pe",
 		Flavors: map[string]model.MPIFlavor{
 			"unknown": {Prefix: "/opt/cray/pe/mpich/8.1.29", Modules: []string{"cray-mpich/8.1.29"}},
 		},

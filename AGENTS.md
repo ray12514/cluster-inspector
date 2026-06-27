@@ -92,6 +92,15 @@ schema.
   templates.
 - Do not infer stack intent from system facts. Report `cray-mpich`
   exists; do not decide that the stack should prefer it.
+- Do not preserve Cray-shaped or obsolete intermediate contracts when the
+  active profile contract is generic. System fragments and profile output
+  must use generic provider inventory (`compiler_providers`,
+  `mpi_providers`, `provider_family`). Cray-specific code is allowed only
+  where it is strictly required to interrogate Cray PE/CPE facts
+  (for example `/opt/cray`, `PrgEnv-*`, `cray-mpich`, or PE environment
+  variables). If a Cray-specific branch remains, the nearby code or test
+  must make clear why a generic Linux/module probe cannot provide that fact.
+  Remove obsolete compatibility fields instead of transforming them later.
 - Do not silently fall back to login-shell behavior. If a non-login
   shell can't probe a fact, emit `unknown` with evidence — do not get
   the answer "right" by sourcing user dotfiles.

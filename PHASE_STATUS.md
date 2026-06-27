@@ -38,15 +38,18 @@ Acceptance per design doc:
 
 Acceptance per design doc:
 - Generic Linux login-node system fragment is produced.
-- Cray login-node system fragment includes `vendor_cray` and Cray MPICH flavors when modules are available.
+- Platform login-node system fragments emit generic `compiler_providers` and
+  `mpi_providers`; Cray PE/CPE evidence is represented as provider inventory,
+  not as a Cray-shaped fragment block.
 - No probe requires Spack.
 
 - [x] `internal/probes/system.go` — OS, glibc, hostname identity
 - [x] `internal/probes/modules.go` — module-system detection (Lmod vs Tcl), MODULEPATH walk
 - [x] `internal/probes/fabric.go` — fabric type, drivers, userspace libs
-- [x] `internal/probes/cray.go` — Cray PE presence, MPICH flavors, CCE/PrgEnv inventory
-- [x] `internal/probes/compiler.go` — generic compiler externals (gcc, aocc, intel, etc.)
-- [x] `internal/probes/mpi.go` — generic MPI externals (openmpi, mpich, etc.)
+- [x] `internal/probes/cray.go` — minimal Cray PE/CPE platform evidence,
+      emitted as generic compiler/MPI providers
+- [x] `internal/probes/compiler.go` — generic compiler providers (gcc, aocc, intel, etc.)
+- [x] `internal/probes/mpi.go` — generic MPI providers (openmpi, mpich, etc.)
 - [x] `internal/probes/gpu.go` — GPU vendor detection, driver, toolkit ceiling
 - [x] `internal/probes/filesystem.go` — install-tree, source-cache, buildcache candidates
 - [x] Evidence capture for every probe

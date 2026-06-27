@@ -8,9 +8,8 @@ type SystemFragment struct {
 	OS                OS                  `json:"os" yaml:"os"`
 	Fabric            Fabric              `json:"fabric" yaml:"fabric"`
 	ModulesSystem     ModulesSystem       `json:"modules_system" yaml:"modules_system"`
-	VendorCray        *VendorCray         `json:"vendor_cray" yaml:"vendor_cray"`
-	CompilersExternal []CompilerExternal  `json:"compilers_external,omitempty" yaml:"compilers_external,omitempty"`
-	MPI               []MPIExternal       `json:"mpi,omitempty" yaml:"mpi,omitempty"`
+	CompilerProviders []CompilerProvider  `json:"compiler_providers,omitempty" yaml:"compiler_providers,omitempty"`
+	MPIProviders      []MPIProvider       `json:"mpi_providers,omitempty" yaml:"mpi_providers,omitempty"`
 	GPUToolkitModules *GPUToolkitModules  `json:"gpu_toolkit_modules,omitempty" yaml:"gpu_toolkit_modules,omitempty"`
 	SystemExternals   []SystemExternal    `json:"system_externals,omitempty" yaml:"system_externals,omitempty"`
 	Filesystem        Filesystem          `json:"filesystem" yaml:"filesystem"`

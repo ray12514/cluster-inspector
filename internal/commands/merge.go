@@ -3,80 +3,11 @@ package commands
 import (
 	"fmt"
 	"os"
-	"sort"
-	"strings"
 
 	"github.com/ray12514/cluster-inspector/internal/model"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
-
-// toCompilerProviders transforms the probe-detected vendor_cray + generic
-// compiler externals into the generic, emitted compiler_providers inventory.
-// Cray PE compilers become provider_family=cray-pe; everything else is tagged
-// site (or system for /usr prefixes). Probing stays Cray-aware; the emitted
-// facts are generic.
-func toCompilerProviders(f model.SystemFragment) []model.CompilerProvider {
-	out := []model.CompilerProvider{}
-	if f.VendorCray != nil {
-		langs := []string{"c", "c++", "fortran"}
-		blocks := []struct {
-			name  string
-			block *model.CrayCompilerBlock
-		}{
-			{"cce", f.VendorCray.CCE}, {"gcc", f.VendorCray.GCC}, {"aocc", f.VendorCray.AOCC},
-			{"intel", f.VendorCray.Intel}, {"rocmcc", f.VendorCray.ROCmCC}, {"nvhpc", f.VendorCray.NVHPC},
-		}
-		for _, nb := range blocks {
-			if nb.block == nil {
-				continue
-			}
-			out = append(out, model.CompilerProvider{
-				Name: nb.name, Version: nb.block.Version, Prefix: nb.block.Prefix,
-				ProviderFamily: "cray-pe", Languages: langs, Modules: nb.block.Modules,
-			})
-		}
-	}
-	for _, c := range f.CompilersExternal {
-		family := "site"
-		if strings.HasPrefix(c.Prefix, "/usr") {
-			family = "system"
-		}
-		out = append(out, model.CompilerProvider{
-			Name: c.Name, Version: c.Version, Prefix: c.Prefix,
-			ProviderFamily: family, Languages: c.Languages, Modules: c.Modules,
-		})
-	}
-	return out
-}
-
-// toMPIProviders transforms the probe-detected cray-mpich + generic MPI
-// externals into the generic mpi_providers inventory.
-func toMPIProviders(f model.SystemFragment) []model.MPIProvider {
-	out := []model.MPIProvider{}
-	if f.VendorCray != nil && f.VendorCray.CrayMPICH != nil {
-		cm := f.VendorCray.CrayMPICH
-		flavors := map[string]model.MPIFlavor{}
-		compilers := make([]string, 0, len(cm.Flavors))
-		for name, fl := range cm.Flavors {
-			flavors[name] = model.MPIFlavor{Prefix: fl.Prefix, Modules: fl.Modules}
-			compilers = append(compilers, name)
-		}
-		sort.Strings(compilers)
-		out = append(out, model.MPIProvider{
-			Name: "cray-mpich", Version: cm.Version, ProviderFamily: "cray-pe",
-			Compatibility: &model.MPICompatibility{Compilers: compilers},
-			Flavors:       flavors,
-		})
-	}
-	for _, m := range f.MPI {
-		out = append(out, model.MPIProvider{
-			Name: m.Name, Version: m.Version, ProviderFamily: "site",
-			Prefix: m.Prefix, Compiler: m.Compiler, Modules: m.Modules,
-		})
-	}
-	return out
-}
 
 // NewMergeCommand returns the `cluster-inspector merge` subcommand.
 //
@@ -164,8 +95,8 @@ func mergeFragments(systemFragment model.SystemFragment, nodeFragments []model.N
 		OS:                systemFragment.OS,
 		Fabric:            systemFragment.Fabric,
 		ModulesSystem:     systemFragment.ModulesSystem,
-		CompilerProviders: toCompilerProviders(systemFragment),
-		MPIProviders:      toMPIProviders(systemFragment),
+		CompilerProviders: systemFragment.CompilerProviders,
+		MPIProviders:      systemFragment.MPIProviders,
 		GPUToolkitModules: systemFragment.GPUToolkitModules,
 		SystemExternals:   systemFragment.SystemExternals,
 		Filesystem:        systemFragment.Filesystem,

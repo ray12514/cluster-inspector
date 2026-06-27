@@ -7,15 +7,24 @@ import (
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
 
-// MPIResult contains generic non-Cray MPI externals.
+// MPIResult contains generic MPI provider facts.
 type MPIResult struct {
-	MPI      []model.MPIExternal
-	Evidence map[string]model.Evidence
+	MPIProviders []model.MPIProvider
+	Evidence     map[string]model.Evidence
+}
+
+type mpiExternal struct {
+	Name       string
+	Provenance string
+	Version    string
+	Prefix     string
+	Compiler   string
+	Modules    []string
 }
 
 // ProbeMPI discovers generic MPI implementations (openmpi, mpich,
-// mvapich, intel-mpi, etc.) — excludes Cray MPICH, which is handled by
-// ProbeCrayPE.
+// mvapich, intel-mpi, etc.). Platform MPI providers are discovered by their
+// platform probe and also emitted as generic mpi_providers.
 func ProbeMPI() MPIResult {
 	return ProbeMPIWithModules(nil, nil)
 }
@@ -29,36 +38,36 @@ func ProbeMPIWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hin
 	if mpicc != "" && !strings.HasPrefix(mpicc, "/opt/cray") {
 		name, version := detectMPINameVersion()
 		if name != "" && version != "" {
-			appendMPIExternal(&result.MPI, seen, model.MPIExternal{
+			appendMPIProvider(&result.MPIProviders, seen, mpiProviderFromExternal(mpiExternal{
 				Name:       name,
 				Provenance: mpiProvenance(mpicc),
 				Version:    version,
 				Prefix:     prefixFromCommand(mpicc),
 				Modules:    []string{},
-			})
-			appendEvidence(result.Evidence, "mpi."+name, evidence(model.ConfidenceProbed, "mpicc/mpirun on PATH"))
+			}))
+			appendEvidence(result.Evidence, "mpi_providers."+name, evidence(model.ConfidenceProbed, "mpicc/mpirun on PATH"))
 		}
 	}
 	for _, mpi := range verifiedMPIModules(candidates, hints, result.Evidence) {
-		appendMPIExternal(&result.MPI, seen, mpi)
+		appendMPIProvider(&result.MPIProviders, seen, mpiProviderFromExternal(mpi))
 	}
 	for _, mpi := range mpiExtras(hints) {
-		appendMPIExternal(&result.MPI, seen, mpi)
-		appendEvidence(result.Evidence, "mpi.extra."+mpi.Name, evidence(model.ConfidenceInferred, "inspector-hints extras"))
+		appendMPIProvider(&result.MPIProviders, seen, mpiProviderFromExternal(mpi))
+		appendEvidence(result.Evidence, "mpi_providers.extra."+mpi.Name, evidence(model.ConfidenceInferred, "inspector-hints extras"))
 	}
-	if len(result.MPI) == 0 {
-		appendEvidence(result.Evidence, "mpi", evidence(model.ConfidenceUnknown, "generic MPI not found"))
+	if len(result.MPIProviders) == 0 {
+		appendEvidence(result.Evidence, "mpi_providers", evidence(model.ConfidenceUnknown, "generic MPI not found"))
 	}
 	return result
 }
 
-func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) []model.MPIExternal {
+func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) []mpiExternal {
 	moduleHints := inspectorhints.ModuleHints{}
 	if hints != nil {
 		moduleHints = hints.MPI
 	}
-	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "mpi"), moduleHints, nil, evidenceMap, "mpi.module_hints")
-	out := []model.MPIExternal{}
+	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "mpi"), moduleHints, nil, evidenceMap, "mpi_providers.module_hints")
+	out := []mpiExternal{}
 	for _, module := range accepted {
 		name := mpiNameFromModule(module)
 		if name == "cray-mpich" {
@@ -69,21 +78,21 @@ func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hint
 		}
 		verification, err := verifyModules([]string{module})
 		if err != nil {
-			appendVerificationFailure(evidenceMap, "mpi.verify_failed."+module, []string{module}, err)
+			appendVerificationFailure(evidenceMap, "mpi_providers.verify_failed."+module, []string{module}, err)
 			continue
 		}
 		mpi, ok := mpiExternalFromVerification(name, module, verification)
 		if !ok {
-			appendEvidence(evidenceMap, "mpi.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but MPI prefix unavailable"))
+			appendEvidence(evidenceMap, "mpi_providers.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but MPI prefix unavailable"))
 			continue
 		}
 		out = append(out, mpi)
-		appendEvidence(evidenceMap, "mpi.module."+module, evidence(model.ConfidenceProbed, "clean-shell module verification"))
+		appendEvidence(evidenceMap, "mpi_providers.module."+module, evidence(model.ConfidenceProbed, "clean-shell module verification"))
 	}
 	return out
 }
 
-func mpiExternalFromVerification(name, module string, verification moduleVerification) (model.MPIExternal, bool) {
+func mpiExternalFromVerification(name, module string, verification moduleVerification) (mpiExternal, bool) {
 	prefix := firstNonEmptyString(
 		verification.Env["MPI_HOME"],
 		verification.Env["MPICH_DIR"],
@@ -91,7 +100,7 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 		prefixFromCommand(verification.Commands["mpicc"]),
 	)
 	if prefix == "" || strings.HasPrefix(prefix, "/opt/cray") {
-		return model.MPIExternal{}, false
+		return mpiExternal{}, false
 	}
 	version := moduleVersion(module)
 	if version == "" {
@@ -100,7 +109,7 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 	if version == "" {
 		version = "unknown"
 	}
-	return model.MPIExternal{
+	return mpiExternal{
 		Name:       name,
 		Provenance: mpiProvenanceFromPrefix(prefix),
 		Version:    version,
@@ -137,13 +146,13 @@ func mpiProvenanceFromPrefix(prefix string) string {
 	return "site"
 }
 
-func mpiExtras(hints *inspectorhints.Hints) []model.MPIExternal {
+func mpiExtras(hints *inspectorhints.Hints) []mpiExternal {
 	if hints == nil {
 		return nil
 	}
-	out := make([]model.MPIExternal, 0, len(hints.Extras.MPI))
+	out := make([]mpiExternal, 0, len(hints.Extras.MPI))
 	for _, extra := range hints.Extras.MPI {
-		out = append(out, model.MPIExternal{
+		out = append(out, mpiExternal{
 			Name:       extra.Name,
 			Provenance: extra.Provenance,
 			Version:    extra.Version,
@@ -155,13 +164,28 @@ func mpiExtras(hints *inspectorhints.Hints) []model.MPIExternal {
 	return out
 }
 
-func appendMPIExternal(mpis *[]model.MPIExternal, seen map[string]bool, mpi model.MPIExternal) {
-	key := mpi.Name + "@" + mpi.Version + ":" + mpi.Prefix
+func mpiProviderFromExternal(mpi mpiExternal) model.MPIProvider {
+	family := "site"
+	if mpi.Provenance == "system" || strings.HasPrefix(mpi.Prefix, "/usr") {
+		family = "system"
+	}
+	return model.MPIProvider{
+		Name:           mpi.Name,
+		Version:        mpi.Version,
+		ProviderFamily: family,
+		Prefix:         mpi.Prefix,
+		Compiler:       mpi.Compiler,
+		Modules:        mpi.Modules,
+	}
+}
+
+func appendMPIProvider(providers *[]model.MPIProvider, seen map[string]bool, provider model.MPIProvider) {
+	key := provider.Name + "@" + provider.Version + ":" + provider.Prefix
 	if seen[key] {
 		return
 	}
 	seen[key] = true
-	*mpis = append(*mpis, mpi)
+	*providers = append(*providers, provider)
 }
 
 func detectMPINameVersion() (string, string) {

@@ -14,9 +14,9 @@ import (
 // NewProbeSystemCommand returns the `cluster-inspector probe-system`
 // subcommand.
 //
-// Runs the system-wide probes (OS, glibc, modules, fabric, vendor_cray,
-// compilers_external, mpi, gpu_toolkit_modules, system_externals, filesystem) and emits a
-// system fragment.
+// Runs the system-wide probes (OS, glibc, modules, fabric, generic compiler
+// providers, generic MPI providers, GPU toolkit modules, system externals,
+// filesystem) and emits a system fragment.
 func NewProbeSystemCommand() *cobra.Command {
 	var systemName string
 	var hintsPath string
@@ -26,8 +26,8 @@ func NewProbeSystemCommand() *cobra.Command {
 		Use:   "probe-system",
 		Short: "Probe system-wide facts and emit a system fragment",
 		Long: `probe-system collects system-wide facts (OS, glibc, module tool,
-fabric, Cray PE inventory, compiler externals, MPI externals, GPU toolkit
-modules, system package externals, install-tree candidates) and emits a system fragment that can be
+fabric, compiler providers, MPI providers, GPU toolkit modules, system package
+externals, install-tree candidates) and emits a system fragment that can be
 merged with per-node fragments by the merge command.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,7 +49,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	system := probes.ProbeSystem(systemName)
 	modules := probes.ProbeModules()
 	fabric := probes.ProbeFabric()
-	cray := probes.ProbeCrayPEWithModules(modules.Candidates, hints)
+	platformProviders := probes.ProbeCrayPEWithModules(modules.Candidates, hints)
 	compilers := probes.ProbeCompilersExternalWithModules(modules.Candidates, hints)
 	mpi := probes.ProbeMPIWithModules(modules.Candidates, hints)
 	gpuToolkits := probes.ProbeGPUToolkitModulesWithModules(modules.Candidates, hints)
@@ -60,7 +60,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	mergeEvidence(evidence, system.Evidence)
 	mergeEvidence(evidence, modules.Evidence)
 	mergeEvidence(evidence, fabric.Evidence)
-	mergeEvidence(evidence, cray.Evidence)
+	mergeEvidence(evidence, platformProviders.Evidence)
 	mergeEvidence(evidence, compilers.Evidence)
 	mergeEvidence(evidence, mpi.Evidence)
 	mergeEvidence(evidence, gpuToolkits.Evidence)
@@ -73,9 +73,8 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 		OS:                system.OS,
 		Fabric:            fabric.Fabric,
 		ModulesSystem:     modules.ModulesSystem,
-		VendorCray:        cray.VendorCray,
-		CompilersExternal: compilers.Compilers,
-		MPI:               mpi.MPI,
+		CompilerProviders: append(platformProviders.CompilerProviders, compilers.CompilerProviders...),
+		MPIProviders:      append(platformProviders.MPIProviders, mpi.MPIProviders...),
 		GPUToolkitModules: gpuToolkits.Toolkits,
 		SystemExternals:   systemExternals.Externals,
 		Filesystem:        filesystem.Filesystem,

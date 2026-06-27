@@ -17,17 +17,17 @@ fabric:
     - { name: ucx, version: "1.19.1", prefix: /usr }
 modules_system:
   tool: tcl
-vendor_cray: null
-compilers_external:
+compiler_providers:
   - name: aocc
     version: "4.2"
     prefix: /opt/ci/aocc-4.2
+    provider_family: site
     modules: [aocc/4.2]
     languages: [c, c++, fortran]
-mpi:
+mpi_providers:
   - name: openmpi
-    provenance: site
     version: "5.0.9"
+    provider_family: site
     prefix: /opt/ci/openmpi-5.0.9
     compiler: aocc@4.2
     modules: [openmpi/5.0.9]

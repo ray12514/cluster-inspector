@@ -9,22 +9,30 @@ import (
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
 
-// CompilersResult contains generic non-Cray compiler externals.
+// CompilersResult contains generic compiler provider facts.
 type CompilersResult struct {
-	Compilers []model.CompilerExternal
-	Evidence  map[string]model.Evidence
+	CompilerProviders []model.CompilerProvider
+	Evidence          map[string]model.Evidence
 }
 
-// ProbeCompilersExternal discovers generic site or system compilers
-// (gcc, aocc, intel, oneapi, nvhpc, etc.) — excludes Cray PE compilers,
-// which are handled by ProbeCrayPE.
+type compilerExternal struct {
+	Name      string
+	Version   string
+	Prefix    string
+	Modules   []string
+	Languages []string
+}
+
+// ProbeCompilersExternal discovers generic site or system compiler providers
+// (gcc, aocc, intel, oneapi, nvhpc, etc.). Platform programming-environment
+// providers are discovered by their platform probe and also emitted as generic
+// compiler_providers.
 func ProbeCompilersExternal() CompilersResult {
 	return ProbeCompilersExternalWithModules(nil, nil)
 }
 
 // ProbeCompilersExternalWithModules discovers generic compilers from both
-// the current environment and verified module candidates. Cray PE compiler
-// modules are intentionally left for ProbeCrayPEWithModules.
+// the current environment and verified module candidates.
 func ProbeCompilersExternalWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hints) CompilersResult {
 	result := CompilersResult{Evidence: map[string]model.Evidence{}}
 	seen := map[string]bool{}
@@ -49,29 +57,29 @@ func ProbeCompilersExternalWithModules(candidates []ModuleCandidate, hints *insp
 		if strings.HasPrefix(compiler.Prefix, "/opt/cray") {
 			continue
 		}
-		appendCompilerExternal(&result.Compilers, seen, compiler)
-		appendEvidence(result.Evidence, "compilers_external."+compiler.Name, evidence(model.ConfidenceProbed, compiler.Prefix))
+		appendCompilerProvider(&result.CompilerProviders, seen, compilerProviderFromExternal(compiler))
+		appendEvidence(result.Evidence, "compiler_providers."+compiler.Name, evidence(model.ConfidenceProbed, compiler.Prefix))
 	}
 	for _, compiler := range verifiedCompilerModules(candidates, hints, result.Evidence) {
-		appendCompilerExternal(&result.Compilers, seen, compiler)
+		appendCompilerProvider(&result.CompilerProviders, seen, compilerProviderFromExternal(compiler))
 	}
 	for _, compiler := range compilerExtras(hints) {
-		appendCompilerExternal(&result.Compilers, seen, compiler)
-		appendEvidence(result.Evidence, "compilers_external.extra."+compiler.Name, evidence(model.ConfidenceInferred, "inspector-hints extras"))
+		appendCompilerProvider(&result.CompilerProviders, seen, compilerProviderFromExternal(compiler))
+		appendEvidence(result.Evidence, "compiler_providers.extra."+compiler.Name, evidence(model.ConfidenceInferred, "inspector-hints extras"))
 	}
-	if len(result.Compilers) == 0 {
-		appendEvidence(result.Evidence, "compilers_external", evidence(model.ConfidenceUnknown, "no generic compiler commands found"))
+	if len(result.CompilerProviders) == 0 {
+		appendEvidence(result.Evidence, "compiler_providers", evidence(model.ConfidenceUnknown, "no generic compiler commands found"))
 	}
 	return result
 }
 
-func verifiedCompilerModules(candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) []model.CompilerExternal {
+func verifiedCompilerModules(candidates []ModuleCandidate, hints *inspectorhints.Hints, evidenceMap map[string]model.Evidence) []compilerExternal {
 	moduleHints := inspectorhints.ModuleHints{}
 	if hints != nil {
 		moduleHints = hints.Compilers
 	}
-	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "compiler"), moduleHints, nil, evidenceMap, "compilers_external.module_hints")
-	compilers := []model.CompilerExternal{}
+	accepted := applyModulePolicy(candidateNamesByCategory(candidates, "compiler"), moduleHints, nil, evidenceMap, "compiler_providers.module_hints")
+	compilers := []compilerExternal{}
 	for _, module := range accepted {
 		name := compilerNameFromModule(module)
 		if name == "" || isCrayCompilerModule(module) {
@@ -79,24 +87,24 @@ func verifiedCompilerModules(candidates []ModuleCandidate, hints *inspectorhints
 		}
 		verification, err := verifyModules([]string{module})
 		if err != nil {
-			appendVerificationFailure(evidenceMap, "compilers_external.verify_failed."+module, []string{module}, err)
+			appendVerificationFailure(evidenceMap, "compiler_providers.verify_failed."+module, []string{module}, err)
 			continue
 		}
 		compiler, ok := compilerExternalFromVerification(name, module, verification)
 		if !ok {
-			appendEvidence(evidenceMap, "compilers_external.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but compiler prefix unavailable"))
+			appendEvidence(evidenceMap, "compiler_providers.verify_failed."+module, evidence(model.ConfidenceUnknown, "module loaded but compiler prefix unavailable"))
 			continue
 		}
 		compilers = append(compilers, compiler)
-		appendEvidence(evidenceMap, "compilers_external.module."+module, evidence(model.ConfidenceProbed, "clean-shell module verification"))
+		appendEvidence(evidenceMap, "compiler_providers.module."+module, evidence(model.ConfidenceProbed, "clean-shell module verification"))
 	}
 	return compilers
 }
 
-func compilerExternalFromVerification(name, module string, verification moduleVerification) (model.CompilerExternal, bool) {
+func compilerExternalFromVerification(name, module string, verification moduleVerification) (compilerExternal, bool) {
 	prefix := compilerPrefixFromVerification(name, verification)
 	if prefix == "" || strings.HasPrefix(prefix, "/opt/cray") {
-		return model.CompilerExternal{}, false
+		return compilerExternal{}, false
 	}
 	version := moduleVersion(module)
 	if version == "" {
@@ -109,7 +117,7 @@ func compilerExternalFromVerification(name, module string, verification moduleVe
 	if len(languages) == 0 {
 		languages = []string{"c"}
 	}
-	return model.CompilerExternal{
+	return compilerExternal{
 		Name:      name,
 		Version:   version,
 		Prefix:    prefix,
@@ -216,13 +224,13 @@ func compilerCommands(name string) []string {
 	}
 }
 
-func compilerExtras(hints *inspectorhints.Hints) []model.CompilerExternal {
+func compilerExtras(hints *inspectorhints.Hints) []compilerExternal {
 	if hints == nil {
 		return nil
 	}
-	out := make([]model.CompilerExternal, 0, len(hints.Extras.Compilers))
+	out := make([]compilerExternal, 0, len(hints.Extras.Compilers))
 	for _, extra := range hints.Extras.Compilers {
-		out = append(out, model.CompilerExternal{
+		out = append(out, compilerExternal{
 			Name:      extra.Name,
 			Version:   extra.Version,
 			Prefix:    extra.Prefix,
@@ -233,13 +241,28 @@ func compilerExtras(hints *inspectorhints.Hints) []model.CompilerExternal {
 	return out
 }
 
-func appendCompilerExternal(compilers *[]model.CompilerExternal, seen map[string]bool, compiler model.CompilerExternal) {
-	key := compiler.Name + "@" + compiler.Version + ":" + compiler.Prefix
+func compilerProviderFromExternal(compiler compilerExternal) model.CompilerProvider {
+	family := "site"
+	if strings.HasPrefix(compiler.Prefix, "/usr") {
+		family = "system"
+	}
+	return model.CompilerProvider{
+		Name:           compiler.Name,
+		Version:        compiler.Version,
+		Prefix:         compiler.Prefix,
+		ProviderFamily: family,
+		Languages:      compiler.Languages,
+		Modules:        compiler.Modules,
+	}
+}
+
+func appendCompilerProvider(providers *[]model.CompilerProvider, seen map[string]bool, provider model.CompilerProvider) {
+	key := provider.Name + "@" + provider.Version + ":" + provider.Prefix
 	if seen[key] {
 		return
 	}
 	seen[key] = true
-	*compilers = append(*compilers, compiler)
+	*providers = append(*providers, provider)
 }
 
 func activeCrayPrgEnvCompiler(name string) bool {
@@ -265,21 +288,21 @@ type compilerCandidate struct {
 	env  []string
 }
 
-func probeCompiler(candidate compilerCandidate) (model.CompilerExternal, bool) {
+func probeCompiler(candidate compilerCandidate) (compilerExternal, bool) {
 	cc, ccPath := firstCommand(candidate.cc...)
 	if ccPath == "" {
-		return model.CompilerExternal{}, false
+		return compilerExternal{}, false
 	}
 	version := compilerVersion(candidate.name, cc)
 	if version == "" {
-		return model.CompilerExternal{}, false
+		return compilerExternal{}, false
 	}
 	prefix := compilerPrefix(candidate, ccPath)
 	if prefix == "" {
-		return model.CompilerExternal{}, false
+		return compilerExternal{}, false
 	}
 	if candidate.name == "aocc" && cc != "amdclang" && !compilerLooksLikeAOCCPrefix(prefix) {
-		return model.CompilerExternal{}, false
+		return compilerExternal{}, false
 	}
 
 	languages := []string{"c"}
@@ -289,7 +312,7 @@ func probeCompiler(candidate compilerCandidate) (model.CompilerExternal, bool) {
 	if _, fcPath := firstCommand(candidate.fc...); fcPath != "" && samePrefix(prefix, fcPath) {
 		languages = append(languages, "fortran")
 	}
-	return model.CompilerExternal{
+	return compilerExternal{
 		Name:      candidate.name,
 		Version:   version,
 		Prefix:    prefix,
@@ -327,7 +350,7 @@ func firstCommand(names ...string) (string, string) {
 	return "", ""
 }
 
-func compilerLooksLikeAOCC(compiler model.CompilerExternal) bool {
+func compilerLooksLikeAOCC(compiler compilerExternal) bool {
 	return compilerLooksLikeAOCCPrefix(compiler.Prefix)
 }
 

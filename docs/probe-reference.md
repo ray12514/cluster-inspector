@@ -17,8 +17,8 @@ cluster-inspector probe-system \
 ```
 
 System-wide probes cover OS/glibc, module tool, module candidates, fabric,
-Cray PE inventory, compiler externals, MPI externals, GPU toolkit modules,
-focused ordinary system externals, and shared filesystem candidates.
+platform provider inventory, compiler providers, MPI providers, GPU toolkit
+modules, focused ordinary system externals, and shared filesystem candidates.
 
 ### `probe-node`
 
@@ -99,10 +99,11 @@ Module verification uses non-login `bash -c`, initializes module machinery when
 available, purges/resets module state, loads exactly the candidate modules, and
 then probes environment variables and command paths.
 
-On current Cray PE NVIDIA systems, hints should use `PrgEnv-nvidia` plus the
-`nvidia/<version>` compiler module for NVHPC and `cuda/<version>` for the CUDA
-toolkit. The profile field remains `vendor_cray.nvhpc` for compiler identity;
-only add alternate PrgEnv naming when a target site proves it is required.
+On current Cray PE/CPE NVIDIA systems, hints should use the observed platform
+modules, such as `PrgEnv-nvidia` plus the `nvidia/<version>` compiler module for
+NVHPC and `cuda/<version>` for the CUDA toolkit. Compiler identity is emitted as
+generic `compiler_providers[].name: nvhpc`; do not introduce a Cray-shaped
+profile field for it.
 
 ## Caveats
 
