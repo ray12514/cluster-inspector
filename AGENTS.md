@@ -11,6 +11,7 @@ that the renderer (`stack-composer`) consumes.
 | Need the high-level role and product boundary | `README.md` here, then `stack-planning/docs/cluster_inspector_stack_profile_design_v1.md` |
 | Need to implement a specific profile-field probe | `stack-planning/docs/cluster_inspector_profile_extraction_map_v1.md` |
 | Need to know what a valid `profile.yaml` looks like | `stack-planning/schemas/profile-v1.json` + tracked examples under `tests/fixtures/*/profile.yaml` |
+| Need to change probe architecture or discovery policy | `docs/design-audit-v1.md` |
 | Want to mine probe-logic patterns from a working tool | The old Python `clusterinspector` at `github.com/ray12514/clusterinspector`. Clone adjacent to this repo if you'll port from it. |
 
 If `stack-planning` isn't checked out locally, clone it to
@@ -112,6 +113,34 @@ schema.
 - Do not duplicate the canonical schema or design content here. Point
   at `stack-planning`.
 
+## Required pre-change assessment
+
+Before making a meaningful implementation change, write down the assessment in
+the work log, PR description, issue, or a tracked doc. Do this before editing
+code when the change touches probe behavior, profile shape, discovery policy,
+provider adapters, module verification, or cross-repo contracts.
+
+The assessment must answer:
+
+1. **Requested change.** What behavior or contract is being changed?
+2. **Design source.** Which `stack-planning` doc/schema or local agent guidance
+   authorizes it? If none, update the design first.
+3. **Ownership.** Is this an observed profile fact, installer-owned deployment
+   input, stack/default policy, template behavior, or build-tool behavior?
+4. **Scope classification.** Required by current design, consistent but
+   unplanned, scope creep, or conflicts with design.
+5. **Seam.** Which module/interface should own the behavior? Prefer the narrow
+   public seam (`ProbeProviderInventory`, hints, model validation, etc.) over
+   scattered call-site logic.
+6. **Risks.** Does this add hardcoded site/vendor assumptions, duplicate
+   another repo's responsibility, create new user-facing syntax, or weaken
+   generic Linux behavior?
+7. **Decision.** Implement now, document first then implement, defer, or reject.
+
+Use the codebase-design vocabulary: keep modules deep, keep interfaces small,
+put platform variation behind adapters, and keep discovery vocabulary in data
+instead of spreading literals through generic probes.
+
 ## Implementation phase map
 
 The design doc names five phases. They are implemented; keep this map as the
@@ -149,6 +178,13 @@ adding recognized compilers, MPI implementations, GPU toolkit roots,
 system-external focus packages, scratch/shared filesystem roots, fabric
 evidence, or platform-owned prefixes. Keeping this vocabulary in policy keeps
 the probe modules generic and makes future platform adapters smaller.
+
+The discovery policy is not stack-selection policy. It records discovery clues
+and candidate external mappings: module-name segments/prefixes, environment
+keys, command names, common roots, platform-owned prefixes, and component
+mapping tables. It must not decide whether a rendered stack uses a candidate;
+that decision belongs to `stack-composer` inputs such as `defaults.yaml`,
+`stack.yaml`, and `deployment.yaml`.
 
 ## Build and test
 

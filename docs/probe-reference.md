@@ -109,7 +109,8 @@ then probes environment variables and command paths.
 ## Discovery policy
 
 Common discovery vocabulary lives in the embedded
-`internal/resources/discovery_policy.yaml` resource. That policy defines:
+`internal/resources/discovery_policy.yaml` resource. The word "policy" here
+means discovery policy, not stack-selection policy. It defines:
 
 - compiler, MPI, and GPU toolkit module-name segments;
 - environment variables and commands used by clean-shell verification;
@@ -122,6 +123,16 @@ Generic probes should read this policy instead of hard-coding provider or site
 vocabulary. Add a provider adapter only for platform facts that need special
 interrogation beyond normal modules, commands, environment variables, and
 filesystem evidence.
+
+Discovery policy entries are clues and candidate mappings. They do not decide
+whether `stack-composer` renders a candidate as a Spack external. That decision
+belongs to explicit render inputs such as `defaults.yaml`, `stack.yaml`, and
+`deployment.yaml`.
+
+ROCm is more complicated than CUDA/NVHPC because Spack externalizes many ROCm
+components as separate packages. The current component mapping is a candidate
+table, not a complete claim about every ROCm package a site could externalize;
+see `docs/design-audit-v1.md` before changing ROCm discovery.
 
 On current Cray PE/CPE NVIDIA systems, hints should use the observed platform
 modules, such as `PrgEnv-nvidia` plus the `nvidia/<version>` compiler module for
