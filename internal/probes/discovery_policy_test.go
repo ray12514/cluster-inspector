@@ -20,6 +20,15 @@ func TestDiscoveryPolicyLoadsCoreProviderRules(t *testing.T) {
 	if len(rocm.SpackComponents) == 0 {
 		t.Fatal("expected ROCm component policy")
 	}
+	if prefixes := compilerPolicyModulePrefixes("gcc"); len(prefixes) == 0 || prefixes[0] != "PrgEnv-gnu" {
+		t.Fatalf("expected compiler module-name prefixes from policy, got %#v", prefixes)
+	}
+	if len(p.Filesystem.SharedProbeRoots) == 0 {
+		t.Fatal("expected shared filesystem probe roots")
+	}
+	if len(p.Filesystem.ScratchProbeRoots) == 0 {
+		t.Fatal("expected scratch filesystem probe roots")
+	}
 	if !mpiPolicyPlatformOwned("cray-mpich") {
 		t.Fatal("expected cray-mpich to be platform-owned")
 	}

@@ -16,9 +16,9 @@ type FilesystemResult struct {
 	Evidence   map[string]model.Evidence
 }
 
-// ProbeFilesystem identifies install-tree candidates (shared filesystems
-// suitable for the Spack install tree), source-cache candidates, and
-// buildcache candidates. Checks lock honoring via flock probe.
+// ProbeFilesystem identifies shared filesystem candidates that an installer may
+// choose as a Spack install-tree parent. The actual install tree is owned by
+// deployment.yaml; this probe only reports candidates with evidence.
 func ProbeFilesystem() FilesystemResult {
 	result := FilesystemResult{
 		// Non-nil so yaml.v3 emits an empty array, not `null`. The
@@ -46,16 +46,16 @@ func ProbeFilesystem() FilesystemResult {
 		}
 		result.Filesystem.InstallTreeCandidates = append(result.Filesystem.InstallTreeCandidates, candidate)
 		confidence := model.ConfidenceInferred
-		reason := "known install-tree shape under existing filesystem root"
+		reason := "candidate shape under observed shared filesystem root; deployment chooses actual install tree"
 		if probeRoot == path {
 			confidence = model.ConfidenceProbed
-			reason = "existing known install-tree path"
+			reason = "existing install-tree candidate path; deployment chooses actual install tree"
 		}
 		appendEvidence(result.Evidence, "filesystem.install_tree_candidates."+path, evidence(confidence, reason))
 	}
 
 	if len(result.Filesystem.InstallTreeCandidates) == 0 {
-		appendEvidence(result.Evidence, "filesystem.install_tree_candidates", evidence(model.ConfidenceUnknown, "no known install-tree candidates found"))
+		appendEvidence(result.Evidence, "filesystem.install_tree_candidates", evidence(model.ConfidenceUnknown, "no shared install-tree candidates found"))
 		return result
 	}
 
@@ -76,19 +76,12 @@ func ProbeFilesystem() FilesystemResult {
 }
 
 func candidateInstallTreePaths() []string {
-	user := os.Getenv("USER")
-	paths := []string{os.Getenv("CLUSTER_INSPECTOR_INSTALL_TREE")}
-	paths = append(paths, policy().Filesystem.InstallTreePaths...)
-	for _, root := range policy().Filesystem.SharedRoots {
+	paths := []string{
+		os.Getenv("CLUSTER_INSPECTOR_INSTALL_TREE_CANDIDATE"),
+	}
+	for _, root := range policy().Filesystem.SharedProbeRoots {
 		if isDir(root) {
 			paths = append(paths, filepath.Join(root, "stack", "spack", "opt"))
-		}
-	}
-	if user != "" {
-		for _, root := range policy().Filesystem.ScratchRoots {
-			if isDir(root) {
-				paths = append(paths, filepath.Join(root, user, "stack", "spack", "opt"))
-			}
 		}
 	}
 	return cleanPathList(paths)

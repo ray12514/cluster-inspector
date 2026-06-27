@@ -7,7 +7,7 @@ compilers:
     fortran: [gfortran]
     env: [GCC_PATH]
     module_segments: [gcc, gcc-native]
-    module_prefixes: [PrgEnv-gnu]
+    module_name_prefixes: [PrgEnv-gnu]
   - name: aocc
     cc: [amdclang, clang]
     cxx: [amdclang++, clang++]
@@ -15,7 +15,7 @@ compilers:
     env: [AOCC_HOME, AOCC_ROOT, AOMP]
     roots: [/opt/AMD/aocc-compiler, /opt/AMD]
     module_segments: [aocc]
-    module_prefixes: [PrgEnv-aocc]
+    module_name_prefixes: [PrgEnv-aocc]
   - name: oneapi
     cc: [icx]
     cxx: [icpx]
@@ -29,14 +29,14 @@ compilers:
     env: [INTEL_PATH, INTEL_HOME]
     roots: [/opt/intel/oneapi/compiler, /opt/intel]
     module_segments: [intel]
-    module_prefixes: [PrgEnv-intel]
+    module_name_prefixes: [PrgEnv-intel]
   - name: nvhpc
     cc: [nvc]
     cxx: [nvc++]
     fortran: [nvfortran]
     env: [NVHPC_ROOT]
     module_segments: [nvhpc]
-    module_prefixes: [PrgEnv-nvidia]
+    module_name_prefixes: [PrgEnv-nvidia]
   - name: clang
     cc: [clang]
     cxx: [clang++]
@@ -47,7 +47,7 @@ compilers:
     fortran: [ftn]
     env: [CRAY_PE_CCE_PREFIX, CRAY_CC_VERSION]
     module_segments: [cce]
-    module_prefixes: [PrgEnv-cray]
+    module_name_prefixes: [PrgEnv-cray]
     platform_owned: true
   - name: rocmcc
     cc: [amdclang]
@@ -55,7 +55,7 @@ compilers:
     fortran: [flang]
     env: [ROCM_PATH]
     module_segments: [rocmcc, rocm]
-    module_prefixes: [PrgEnv-amd]
+    module_name_prefixes: [PrgEnv-amd]
     platform_owned: true
 
 mpi:
@@ -119,12 +119,8 @@ system_externals:
   default_focus: [openssl, curl]
 
 filesystem:
-  install_tree_paths:
-    - /shared/stack/spack/opt
-    - /apps/spack/opt
-    - /opt/spack/opt
-  shared_roots: [/shared, /apps, /gpfs, /lustre, /project, /projects, /work]
-  scratch_roots: [/scratch, /local_scratch]
+  shared_probe_roots: [/shared, /apps, /gpfs, /lustre, /project, /projects, /work]
+  scratch_probe_roots: [/scratch, /local_scratch]
 
 fabric:
   cxi_device_paths: [/sys/class/cxi, /dev/cxi]
@@ -140,5 +136,5 @@ platforms:
     owned_prefixes: [/opt/cray]
     module_categories: [cray_pe]
     module_segments: [cray-mpich, cray-libsci]
-    module_prefixes: [prgenv-, craype-]
+    module_name_prefixes: [prgenv-, craype-]
     pe_root: /opt/cray/pe

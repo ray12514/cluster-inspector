@@ -32,9 +32,9 @@ The facts-versus-policy split is:
 | Provider inventory | `ProbeProviderInventory(candidates, hints)` | Correct seam. It hides generic Linux plus platform adapters behind one interface. | Keep as the only caller-facing provider probe. |
 | Generic Linux provider discovery | compiler/MPI/GPU probes using discovery policy | Good direction, but still needs clearer policy semantics. | Tighten policy naming/docs and tests. |
 | Platform discovery | `cray.go` adapter | Acceptable as an adapter, but it still contains several Cray-specific env/module facts. That is okay only inside the adapter. | Keep isolated; do not let generic probes call Cray helpers. |
-| Discovery policy | `internal/resources/discovery_policy.yaml` | Useful, but name and field semantics can be mistaken for stack-selection policy. | Clarify as discovery vocabulary/candidate mapping only; consider field renames before v1. |
+| Discovery policy | `internal/resources/discovery_policy.yaml` | Useful, but name and field semantics can be mistaken for stack-selection policy. | Clarify as discovery vocabulary/candidate mapping only. Ambiguous module/filesystem field names were corrected after this audit. |
 | Module verification | `verifyModules([]string)` returns env/command observations | Useful internal seam. It should remain non-login and policy-driven. | Keep; avoid adding provider-specific shell scripts. |
-| Filesystem probing | emits `install_tree_candidates` from fixed candidate roots | Weakest seam. Profile may offer candidates, but install tree is installer-owned in `deployment.yaml`. Current `install_tree_paths` can look like a chosen path list. | Demote/remove guessed install-tree paths; keep observation-based shared filesystem candidates. |
+| Filesystem probing | emits `install_tree_candidates` from explicit candidate hints and observed shared roots | Profile may offer candidates, but install tree is installer-owned in `deployment.yaml`. | Keep observation-based shared filesystem candidates; do not add selected deployment paths here. |
 | ROCm components | fixed `spack_components` list from policy | Incomplete. ROCm is split across many Spack packages; the current list is a smoke-path subset. | Replace with a fuller Spack-version-aware component candidate table and/or probe-backed component detection. |
 | System externals | focused list plus package-manager probes | Correct boundary if facts stay candidate-only. | Expand only through focus policy/hints, not broad `spack external find` behavior. |
 
@@ -58,9 +58,9 @@ Field naming cleanup to consider before v1:
 
 | Current field | Problem | Better direction |
 |---|---|---|
-| `module_prefixes` | Ambiguous with filesystem install prefixes. | Rename to `module_name_prefixes`. |
+| `module_name_prefixes` | Describes module-name clues, not install prefixes. | Keep. |
 | `roots` | Can sound like chosen roots. | Keep only for discovery roots; document as candidate probe roots. |
-| `install_tree_paths` | Sounds like installer choices and conflicts with `deployment.yaml` ownership. | Remove or rename to `shared_filesystem_probe_paths`; do not emit them as chosen install trees. |
+| `shared_probe_roots` / `scratch_probe_roots` | Clearer than generic root names; these are probe roots only. | Keep install-tree candidates derived from shared roots only; scratch roots are for build-stage candidates. |
 | `spack_components` | Hides that ROCm component mapping may be version-sensitive and incomplete. | Move to a dedicated ROCm component table keyed by supported Spack/ROCm expectations. |
 
 ## ROCm component finding
@@ -110,8 +110,9 @@ Therefore:
 - validation may compare `deployment.yaml` choices against profile candidates,
   but the profile must not choose for the installer.
 
-Pre-v1 correction: remove or demote the fixed `install_tree_paths` policy list
-so it cannot be mistaken for deployment input.
+Current rule: `cluster-inspector` derives install-tree candidates only from an
+explicit `CLUSTER_INSPECTOR_INSTALL_TREE_CANDIDATE` hint and observed shared
+probe roots. Scratch probe roots are reserved for build-stage candidates.
 
 ## Whole-codebase refactor candidates
 
@@ -119,11 +120,13 @@ Prioritize these in order:
 
 1. **Clarify discovery policy contract.** Rename ambiguous fields where worth
    the churn, update docs/tests, and state that policy is discovery vocabulary.
+   The first cleanup pass renamed module/filesystem policy fields; keep this
+   rule active for future additions.
 2. **Fix ROCm external candidate modeling.** Add a fuller component table or
    probe-backed component detection. Do not hardcode a partial list as if it is
    complete.
-3. **Correct filesystem candidate ownership.** Remove installer-looking
-   defaults from discovery policy; keep only observed/shared filesystem facts.
+3. **Correct filesystem candidate ownership.** Completed for fixed install-tree
+   defaults. Continue to keep only observed/shared filesystem facts here.
 4. **Generalize platform policy lookup.** Replace helper names like
    `crayPEPolicy()` in generic files with generic platform-policy lookup where
    possible. Keep Cray-specific facts inside the Cray adapter.

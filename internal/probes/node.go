@@ -272,12 +272,12 @@ func candidateBuildStagePaths() []string {
 		os.Getenv("TEMP"),
 	}
 	if user != "" {
-		for _, root := range policy().Filesystem.ScratchRoots {
+		for _, root := range policy().Filesystem.ScratchProbeRoots {
 			paths = append(paths, filepath.Join(root, user))
 		}
 		paths = append(paths, filepath.Join("/tmp", user))
 	}
-	paths = append(paths, policy().Filesystem.ScratchRoots...)
+	paths = append(paths, policy().Filesystem.ScratchProbeRoots...)
 	paths = append(paths, os.TempDir(), "/tmp", "/var/tmp")
 	return cleanPathList(paths)
 }
@@ -320,7 +320,7 @@ func buildStageForPath(path string) model.BuildStage {
 func buildStageVisibility(path string) string {
 	path = filepath.Clean(path)
 	switch {
-	case pathHasAnyRoot(path, policy().Filesystem.ScratchRoots) || strings.HasPrefix(path, "/lscratch"):
+	case pathHasAnyRoot(path, policy().Filesystem.ScratchProbeRoots) || strings.HasPrefix(path, "/lscratch"):
 		return "compute-only"
 	case path == filepath.Clean(os.Getenv("SLURM_TMPDIR")) && os.Getenv("SLURM_TMPDIR") != "":
 		return "compute-only"
@@ -328,7 +328,7 @@ func buildStageVisibility(path string) string {
 		return "compute-only"
 	case path == "/tmp" || path == "/var/tmp" || strings.HasPrefix(path, "/tmp/"):
 		return "node-local"
-	case pathHasAnyRoot(path, policy().Filesystem.SharedRoots):
+	case pathHasAnyRoot(path, policy().Filesystem.SharedProbeRoots):
 		return "shared"
 	default:
 		return "unknown"
@@ -405,7 +405,7 @@ func throughputClass(path string) string {
 	fsType := strings.ToLower(filesystemType(path))
 	path = filepath.Clean(path)
 	switch {
-	case pathHasAnyRoot(path, policy().Filesystem.ScratchRoots) || fsType == "tmpfs" || fsType == "xfs" || fsType == "ext4":
+	case pathHasAnyRoot(path, policy().Filesystem.ScratchProbeRoots) || fsType == "tmpfs" || fsType == "xfs" || fsType == "ext4":
 		return "fast"
 	case fsType == "lustre" || fsType == "gpfs" || fsType == "beegfs" || fsType == "weka":
 		return "medium"

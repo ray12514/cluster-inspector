@@ -29,7 +29,7 @@ type compilerPolicy struct {
 	Env            []string `yaml:"env"`
 	Roots          []string `yaml:"roots"`
 	ModuleSegments []string `yaml:"module_segments"`
-	ModulePrefixes []string `yaml:"module_prefixes"`
+	ModulePrefixes []string `yaml:"module_name_prefixes"`
 	PlatformOwned  bool     `yaml:"platform_owned"`
 }
 
@@ -61,9 +61,8 @@ type systemExternalsPolicy struct {
 }
 
 type filesystemPolicy struct {
-	InstallTreePaths []string `yaml:"install_tree_paths"`
-	SharedRoots      []string `yaml:"shared_roots"`
-	ScratchRoots     []string `yaml:"scratch_roots"`
+	SharedProbeRoots  []string `yaml:"shared_probe_roots"`
+	ScratchProbeRoots []string `yaml:"scratch_probe_roots"`
 }
 
 type fabricPolicy struct {
@@ -80,7 +79,7 @@ type platformPolicy struct {
 	OwnedPrefixes              []string `yaml:"owned_prefixes"`
 	ModuleCategories           []string `yaml:"module_categories"`
 	ModuleSegments             []string `yaml:"module_segments"`
-	ModulePrefixes             []string `yaml:"module_prefixes"`
+	ModulePrefixes             []string `yaml:"module_name_prefixes"`
 	PERoot                     string   `yaml:"pe_root"`
 }
 
