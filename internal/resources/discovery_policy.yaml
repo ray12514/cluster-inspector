@@ -93,15 +93,75 @@ gpu_toolkits:
     commands: [hipcc]
     roots: [/opt/rocm]
     module_template: "rocm/{version}"
-    spack_components:
-      - { package: hip, prefix_suffix: hip }
-      - { package: hsa-rocr-dev }
-      - { package: comgr }
-      - { package: rocblas }
-      - { package: hipblas }
-      - { package: hipsparse }
-      - { package: rocprim, prefix_suffix: rocprim }
-      - { package: llvm-amdgpu }
+    component_candidates:
+      # Core baseline used by the current profile contract and smoke fixtures.
+      # These are inferred from a coherent ROCm root even when a minimal
+      # container fixture does not include the real libraries.
+      - { package: hip, prefix_suffix: hip, required: true }
+      - { package: hsa-rocr-dev, required: true }
+      - { package: comgr, required: true }
+      - { package: rocblas, required: true }
+      - { package: hipblas, required: true }
+      - { package: hipsparse, required: true }
+      - { package: rocprim, prefix_suffix: rocprim, required: true }
+      - { package: llvm-amdgpu, required: true }
+
+      # Additional ROCm package candidates present in the Spack v1.2.0 package
+      # release set. These are emitted only when one of their probe paths exists
+      # under the detected ROCm prefix.
+      - { package: hipcc, probe_paths: [bin/hipcc] }
+      - { package: hipblas-common, probe_paths: [include/hipblas-common] }
+      - { package: hipblaslt, probe_paths: [lib/libhipblaslt.so] }
+      - { package: hipcub, prefix_suffix: hipcub, probe_paths: [hipcub, include/hipcub] }
+      - { package: hipfft, probe_paths: [lib/libhipfft.so] }
+      - { package: hipfort, probe_paths: [hipfort, include/hipfort] }
+      - { package: hipify-clang, probe_paths: [bin/hipify-clang] }
+      - { package: hiprand, probe_paths: [lib/libhiprand.so] }
+      - { package: hipsolver, probe_paths: [lib/libhipsolver.so] }
+      - { package: hipsparselt, probe_paths: [lib/libhipsparselt.so] }
+      - { package: hip-tests, probe_paths: [bin/hipInfo, bin/hipBusBandwidth] }
+      - { package: hsa-amd-aqlprofile, probe_paths: [lib/libhsa-amd-aqlprofile64.so] }
+      - { package: hsakmt-roct, probe_paths: [lib/libhsakmt.so] }
+      - { package: miopen-hip, probe_paths: [lib/libMIOpen.so] }
+      - { package: migraphx, probe_paths: [lib/libmigraphx.so] }
+      - { package: rccl, probe_paths: [lib/librccl.so] }
+      - { package: rocalution, probe_paths: [lib/librocalution.so] }
+      - { package: rocblas, probe_paths: [lib/librocblas.so] }
+      - { package: rocdecode, probe_paths: [lib/librocdecode.so] }
+      - { package: rocfft, probe_paths: [lib/librocfft.so] }
+      - { package: rocjpeg, probe_paths: [lib/librocjpeg.so] }
+      - { package: rocminfo, probe_paths: [bin/rocminfo] }
+      - { package: rocmlir, probe_paths: [bin/rocmlir-opt] }
+      - { package: rocprim, prefix_suffix: rocprim, probe_paths: [rocprim, include/rocprim] }
+      - { package: rocprofiler-compute, probe_paths: [bin/rocprof-compute] }
+      - { package: rocprofiler-compute-viewer, probe_paths: [bin/rocprof-compute-viewer] }
+      - { package: rocprofiler-dev, probe_paths: [lib/librocprofiler64.so] }
+      - { package: rocprofiler-register, probe_paths: [lib/librocprofiler-register.so] }
+      - { package: rocprofiler-sdk, probe_paths: [lib/librocprofiler-sdk.so] }
+      - { package: rocprofiler-systems, probe_paths: [bin/rocprof-sys] }
+      - { package: rocpydecode, probe_paths: [lib/librocpydecode.so] }
+      - { package: rocrand, probe_paths: [lib/librocrand.so] }
+      - { package: rocshmem, probe_paths: [lib/librocshmem.so] }
+      - { package: rocsolver, probe_paths: [lib/librocsolver.so] }
+      - { package: rocsparse, probe_paths: [lib/librocsparse.so] }
+      - { package: rocthrust, prefix_suffix: rocthrust, probe_paths: [rocthrust, include/rocthrust] }
+      - { package: roctracer-dev, probe_paths: [lib/libroctracer64.so] }
+      - { package: roctracer-dev-api, probe_paths: [include/roctracer/roctracer.h] }
+      - { package: rocwmma, probe_paths: [include/rocwmma] }
+      - { package: rocm-bandwidth-test, probe_paths: [bin/rocm-bandwidth-test] }
+      - { package: rocm-clang-ocl, probe_paths: [bin/clang-ocl] }
+      - { package: rocm-cmake, probe_paths: [lib/cmake/rocm-cmake] }
+      - { package: rocm-core, probe_paths: [.info/version] }
+      - { package: rocm-dbgapi, probe_paths: [lib/librocm-dbgapi.so] }
+      - { package: rocm-debug-agent, probe_paths: [bin/rocm-debug-agent] }
+      - { package: rocm-device-libs, probe_paths: [amdgcn/bitcode, lib/llvm/lib/clang] }
+      - { package: rocm-examples, probe_paths: [share/rocm-examples] }
+      - { package: rocm-gdb, probe_paths: [bin/rocgdb] }
+      - { package: rocm-opencl, probe_paths: [lib/libamdocl64.so] }
+      - { package: rocm-openmp-extras, probe_paths: [lib/libomptarget.rtl.amdgpu.so] }
+      - { package: rocm-smi-lib, probe_paths: [lib/librocm_smi64.so] }
+      - { package: rocm-tensile, probe_paths: [Tensile, lib/cmake/Tensile] }
+      - { package: rocm-validation-suite, probe_paths: [bin/rocm_validation_suite] }
   - name: cudatoolkit
     module_segments: [cuda, cudatoolkit]
     env: [CUDA_HOME, CUDA_PATH]

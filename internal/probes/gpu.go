@@ -403,12 +403,36 @@ func gpuToolkitCommandPrefix(policy gpuToolkitPolicy, verification moduleVerific
 
 func rocmSpackComponents(prefix string) []model.SpackComponent {
 	policy, _ := gpuToolkitPolicyByName("rocm")
-	out := make([]model.SpackComponent, 0, len(policy.SpackComponents))
-	for _, component := range policy.SpackComponents {
+	out := make([]model.SpackComponent, 0, len(policy.ComponentCandidates))
+	seen := map[string]bool{}
+	for _, component := range policy.ComponentCandidates {
+		if component.Package == "" || seen[component.Package] {
+			continue
+		}
+		if !component.Required && !componentEvidenceExists(prefix, component) {
+			continue
+		}
+		seen[component.Package] = true
 		out = append(out, model.SpackComponent{
 			Package: component.Package,
 			Prefix:  componentPrefix(prefix, component),
 		})
 	}
 	return out
+}
+
+func componentEvidenceExists(prefix string, component spackComponentPolicy) bool {
+	if prefix == "" {
+		return false
+	}
+	for _, rel := range component.ProbePaths {
+		rel = strings.TrimSpace(rel)
+		if rel == "" || filepath.IsAbs(rel) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(prefix, rel)); err == nil {
+			return true
+		}
+	}
+	return false
 }

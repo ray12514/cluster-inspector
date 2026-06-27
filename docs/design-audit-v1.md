@@ -35,7 +35,7 @@ The facts-versus-policy split is:
 | Discovery policy | `internal/resources/discovery_policy.yaml` | Useful, but name and field semantics can be mistaken for stack-selection policy. | Clarify as discovery vocabulary/candidate mapping only. Ambiguous module/filesystem field names were corrected after this audit. |
 | Module verification | `verifyModules([]string)` returns env/command observations | Useful internal seam. It should remain non-login and policy-driven. | Keep; avoid adding provider-specific shell scripts. |
 | Filesystem probing | emits `install_tree_candidates` from explicit candidate hints and observed shared roots | Profile may offer candidates, but install tree is installer-owned in `deployment.yaml`. | Keep observation-based shared filesystem candidates; do not add selected deployment paths here. |
-| ROCm components | fixed `spack_components` list from policy | Incomplete. ROCm is split across many Spack packages; the current list is a smoke-path subset. | Replace with a fuller Spack-version-aware component candidate table and/or probe-backed component detection. |
+| ROCm components | `component_candidates` table in discovery policy emits public `spack_components` | Improved from the smoke-path subset. Core baseline is inferred; additional ROCm candidates are evidence-gated. | Keep synced with `docs/rocm-component-discovery-v1.md` and review when the supported Spack floor changes. |
 | System externals | focused list plus package-manager probes | Correct boundary if facts stay candidate-only. | Expand only through focus policy/hints, not broad `spack external find` behavior. |
 
 ## Discovery policy semantics
@@ -61,7 +61,7 @@ Field naming cleanup to consider before v1:
 | `module_name_prefixes` | Describes module-name clues, not install prefixes. | Keep. |
 | `roots` | Can sound like chosen roots. | Keep only for discovery roots; document as candidate probe roots. |
 | `shared_probe_roots` / `scratch_probe_roots` | Clearer than generic root names; these are probe roots only. | Keep install-tree candidates derived from shared roots only; scratch roots are for build-stage candidates. |
-| `spack_components` | Hides that ROCm component mapping may be version-sensitive and incomplete. | Move to a dedicated ROCm component table keyed by supported Spack/ROCm expectations. |
+| `component_candidates` | Internal ROCm candidate table that emits public `spack_components` facts. | Keep version/support assumptions documented in `docs/rocm-component-discovery-v1.md`. |
 
 ## ROCm component finding
 
@@ -76,22 +76,21 @@ The current ROCm policy emits:
 - `rocprim`
 - `llvm-amdgpu`
 
-This is not enough to claim complete ROCm external coverage. It is only a
-candidate subset for smoke tests. Before v1, ROCm should be handled as a richer
-candidate map:
+This baseline is not the whole ROCm package family. The richer candidate-map
+design is recorded in `docs/rocm-component-discovery-v1.md`. Current behavior:
 
 1. Discover the ROCm root from module verification, `ROCM_PATH`, `hipcc`, and
    common roots such as `/opt/rocm`.
-2. Inspect the root for component directories/libraries where practical.
-3. Emit only components that are supported by the active Spack version and
-   either observed or intentionally inferred from a known ROCm layout.
+2. Emit the baseline components from a coherent ROCm root.
+3. Emit additional ROCm package candidates only when configured evidence paths
+   exist under that root.
 4. Keep the component table in embedded data, not in Go probe logic.
 5. Let `stack-composer` decide which candidates become `packages.yaml`
    externals based on stack/default policy.
 
-Open design question: whether the component table should be keyed by Spack
-floor/version, ROCm version, or both. The answer should be checked against the
-supported Spack release before implementation.
+Open design question: whether future component tables should be keyed by Spack
+floor/version, ROCm version, or both. Revisit this when the supported Spack
+floor changes.
 
 ## Filesystem finding
 
@@ -122,9 +121,9 @@ Prioritize these in order:
    the churn, update docs/tests, and state that policy is discovery vocabulary.
    The first cleanup pass renamed module/filesystem policy fields; keep this
    rule active for future additions.
-2. **Fix ROCm external candidate modeling.** Add a fuller component table or
-   probe-backed component detection. Do not hardcode a partial list as if it is
-   complete.
+2. **Fix ROCm external candidate modeling.** Initial pass completed: the policy
+   now has a broader candidate table, with optional components gated by
+   evidence. Continue tuning from real ROCm systems.
 3. **Correct filesystem candidate ownership.** Completed for fixed install-tree
    defaults. Continue to keep only observed/shared filesystem facts here.
 4. **Generalize platform policy lookup.** Replace helper names like

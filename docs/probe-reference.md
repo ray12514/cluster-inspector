@@ -132,7 +132,7 @@ belongs to explicit render inputs such as `defaults.yaml`, `stack.yaml`, and
 ROCm is more complicated than CUDA/NVHPC because Spack externalizes many ROCm
 components as separate packages. The current component mapping is a candidate
 table, not a complete claim about every ROCm package a site could externalize;
-see `docs/design-audit-v1.md` before changing ROCm discovery.
+see `docs/rocm-component-discovery-v1.md` before changing ROCm discovery.
 
 On current Cray PE/CPE NVIDIA systems, hints should use the observed platform
 modules, such as `PrgEnv-nvidia` plus the `nvidia/<version>` compiler module for

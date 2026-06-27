@@ -113,5 +113,7 @@ Acceptance per design doc:
 4. Run `make lint test validate` before committing.
 5. Keep discovery vocabulary in `internal/resources/discovery_policy.yaml`
    unless a provider-specific adapter is required to interrogate platform facts.
-6. Use `docs/design-audit-v1.md` before changing probe architecture, ROCm
-   component discovery, filesystem candidates, or discovery-policy semantics.
+6. Use `docs/design-audit-v1.md` before changing probe architecture,
+   filesystem candidates, or discovery-policy semantics.
+7. Use `docs/rocm-component-discovery-v1.md` before changing ROCm component
+   discovery.

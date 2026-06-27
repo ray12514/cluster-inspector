@@ -1,6 +1,12 @@
 package probes
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/ray12514/cluster-inspector/internal/model"
+)
 
 func TestDiscoveryPolicyLoadsCoreProviderRules(t *testing.T) {
 	p := policy()
@@ -17,7 +23,7 @@ func TestDiscoveryPolicyLoadsCoreProviderRules(t *testing.T) {
 	if len(rocm.Roots) == 0 || rocm.Roots[0] != "/opt/rocm" {
 		t.Fatalf("unexpected ROCm roots: %#v", rocm.Roots)
 	}
-	if len(rocm.SpackComponents) == 0 {
+	if len(rocm.ComponentCandidates) == 0 {
 		t.Fatal("expected ROCm component policy")
 	}
 	if prefixes := compilerPolicyModulePrefixes("gcc"); len(prefixes) == 0 || prefixes[0] != "PrgEnv-gnu" {
@@ -51,6 +57,36 @@ func TestROCmSpackComponentsComeFromPolicy(t *testing.T) {
 	if !foundLLVM {
 		t.Fatalf("expected llvm-amdgpu component at root prefix, got %#v", components)
 	}
+}
+
+func TestROCmOptionalComponentsRequireEvidence(t *testing.T) {
+	prefix := t.TempDir()
+	withoutEvidence := rocmSpackComponents(prefix)
+	if componentPackagesContain(withoutEvidence, "hipcc") {
+		t.Fatalf("hipcc should not be emitted without evidence: %#v", withoutEvidence)
+	}
+
+	binDir := filepath.Join(prefix, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "hipcc"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	withEvidence := rocmSpackComponents(prefix)
+	if !componentPackagesContain(withEvidence, "hipcc") {
+		t.Fatalf("hipcc should be emitted when evidence exists: %#v", withEvidence)
+	}
+}
+
+func componentPackagesContain(components []model.SpackComponent, want string) bool {
+	for _, component := range components {
+		if component.Package == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestModuleVerificationInputsComeFromPolicy(t *testing.T) {

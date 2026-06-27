@@ -42,18 +42,20 @@ type mpiPolicy struct {
 }
 
 type gpuToolkitPolicy struct {
-	Name            string                 `yaml:"name"`
-	ModuleSegments  []string               `yaml:"module_segments"`
-	Env             []string               `yaml:"env"`
-	Commands        []string               `yaml:"commands"`
-	Roots           []string               `yaml:"roots"`
-	ModuleTemplate  string                 `yaml:"module_template"`
-	SpackComponents []spackComponentPolicy `yaml:"spack_components"`
+	Name                string                 `yaml:"name"`
+	ModuleSegments      []string               `yaml:"module_segments"`
+	Env                 []string               `yaml:"env"`
+	Commands            []string               `yaml:"commands"`
+	Roots               []string               `yaml:"roots"`
+	ModuleTemplate      string                 `yaml:"module_template"`
+	ComponentCandidates []spackComponentPolicy `yaml:"component_candidates"`
 }
 
 type spackComponentPolicy struct {
-	Package      string `yaml:"package"`
-	PrefixSuffix string `yaml:"prefix_suffix"`
+	Package      string   `yaml:"package"`
+	PrefixSuffix string   `yaml:"prefix_suffix"`
+	Required     bool     `yaml:"required"`
+	ProbePaths   []string `yaml:"probe_paths"`
 }
 
 type systemExternalsPolicy struct {
