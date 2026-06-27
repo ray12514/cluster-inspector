@@ -48,7 +48,7 @@ func TestValidateProfileSemanticsRejectsAMDWithoutROCm(t *testing.T) {
 	assertSemanticErrorContains(t, errs, "gpu_toolkit_modules.rocm")
 }
 
-func TestValidateProfileSemanticsRejectsUnknownCrayMPICHFlavor(t *testing.T) {
+func TestValidateProfileSemanticsRejectsMPIFlavorWithoutCompilerProvider(t *testing.T) {
 	profile := minimalSemanticProfile()
 	profile.MPIProviders = []model.MPIProvider{{
 		Name: "cray-mpich", Version: "8.1.29", ProviderFamily: "cray-pe",
@@ -57,7 +57,7 @@ func TestValidateProfileSemanticsRejectsUnknownCrayMPICHFlavor(t *testing.T) {
 		},
 	}}
 	errs := validateProfileSemantics(profile)
-	assertSemanticErrorContains(t, errs, "unsupported flavor unknown")
+	assertSemanticErrorContains(t, errs, `flavors contains compiler "unknown"`)
 }
 
 func TestValidateProfileSemanticsRejectsNonEthernetWithoutDrivers(t *testing.T) {

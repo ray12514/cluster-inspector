@@ -155,7 +155,7 @@ func validateProfileSemantics(profile *model.Profile) []string {
 	errors := []string{}
 	errors = append(errors, validateNodeRoleSemantics(profile)...)
 	errors = append(errors, validateGPUToolkitSemantics(profile)...)
-	errors = append(errors, validateCraySemantics(profile)...)
+	errors = append(errors, validateMPIProviderFlavorSemantics(profile)...)
 	errors = append(errors, validateMPISemantics(profile)...)
 	errors = append(errors, validateFabricSemantics(profile)...)
 	return errors
@@ -237,28 +237,22 @@ func validateROCmComponents(rocm *model.ROCmToolkitModule) []string {
 	return errors
 }
 
-func validateCraySemantics(profile *model.Profile) []string {
-	var crayMPICH *model.MPIProvider
-	for i := range profile.MPIProviders {
-		if profile.MPIProviders[i].Name == "cray-mpich" {
-			crayMPICH = &profile.MPIProviders[i]
-			break
-		}
-	}
-	if crayMPICH == nil {
-		return nil
-	}
+func validateMPIProviderFlavorSemantics(profile *model.Profile) []string {
 	errors := []string{}
-	flavors := make([]string, 0, len(crayMPICH.Flavors))
-	for flavor := range crayMPICH.Flavors {
-		flavors = append(flavors, flavor)
+	compilerNames := map[string]bool{}
+	for _, compiler := range profile.CompilerProviders {
+		compilerNames[compiler.Name] = true
 	}
-	sort.Strings(flavors)
-	for _, flavor := range flavors {
-		switch flavor {
-		case "cce", "gcc", "aocc", "intel", "rocmcc", "nvhpc":
-		default:
-			errors = append(errors, "mpi_providers cray-mpich flavors contains unsupported flavor "+flavor)
+	for i, mpi := range profile.MPIProviders {
+		flavors := make([]string, 0, len(mpi.Flavors))
+		for flavor := range mpi.Flavors {
+			flavors = append(flavors, flavor)
+		}
+		sort.Strings(flavors)
+		for _, flavor := range flavors {
+			if !compilerNames[flavor] {
+				errors = append(errors, fmt.Sprintf("mpi_providers[%d].flavors contains compiler %q not present in compiler_providers", i, flavor))
+			}
 		}
 	}
 	return errors

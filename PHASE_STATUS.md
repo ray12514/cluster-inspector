@@ -56,8 +56,7 @@ Acceptance per design doc:
 **Note on the `profile` all-in-one command.** `cluster-inspector profile`
 now runs the same real Phase 3 pipeline as the lower-level commands:
 `probe-system`, one `probe-node` per requested node type, deterministic
-`merge`, and schema validation. The Phase 1 skeleton remains historical
-only.
+`merge`, and schema validation.
 
 ## Phase 3 — Node-Type Probes and Merge
 

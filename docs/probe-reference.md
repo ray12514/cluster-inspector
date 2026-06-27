@@ -95,7 +95,7 @@ then probes environment variables and command paths.
 On current Cray PE NVIDIA systems, hints should use `PrgEnv-nvidia` plus the
 `nvidia/<version>` compiler module for NVHPC and `cuda/<version>` for the CUDA
 toolkit. The profile field remains `vendor_cray.nvhpc` for compiler identity;
-do not introduce legacy `PrgEnv-nvhpc` handling unless a target site requires it.
+only add alternate PrgEnv naming when a target site proves it is required.
 
 ## Caveats
 
