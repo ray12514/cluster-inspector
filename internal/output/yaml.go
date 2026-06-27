@@ -46,16 +46,13 @@ func profileNode(p *model.Profile) (*yaml.Node, error) {
 	if err := appendValue(root, "modules_system", p.ModulesSystem); err != nil {
 		return nil, err
 	}
-	if err := appendValue(root, "vendor_cray", p.VendorCray); err != nil {
-		return nil, err
-	}
-	if len(p.CompilersExternal) > 0 {
-		if err := appendValue(root, "compilers_external", p.CompilersExternal); err != nil {
+	if len(p.CompilerProviders) > 0 {
+		if err := appendValue(root, "compiler_providers", p.CompilerProviders); err != nil {
 			return nil, err
 		}
 	}
-	if len(p.MPI) > 0 {
-		if err := appendValue(root, "mpi", p.MPI); err != nil {
+	if len(p.MPIProviders) > 0 {
+		if err := appendValue(root, "mpi_providers", p.MPIProviders); err != nil {
 			return nil, err
 		}
 	}

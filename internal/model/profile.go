@@ -12,9 +12,8 @@ type Profile struct {
 	OS                OS                  `json:"os" yaml:"os"`
 	Fabric            Fabric              `json:"fabric" yaml:"fabric"`
 	ModulesSystem     ModulesSystem       `json:"modules_system" yaml:"modules_system"`
-	VendorCray        *VendorCray         `json:"vendor_cray" yaml:"vendor_cray"`
-	CompilersExternal []CompilerExternal  `json:"compilers_external,omitempty" yaml:"compilers_external,omitempty"`
-	MPI               []MPIExternal       `json:"mpi,omitempty" yaml:"mpi,omitempty"`
+	CompilerProviders []CompilerProvider  `json:"compiler_providers,omitempty" yaml:"compiler_providers,omitempty"`
+	MPIProviders      []MPIProvider       `json:"mpi_providers,omitempty" yaml:"mpi_providers,omitempty"`
 	GPUToolkitModules *GPUToolkitModules  `json:"gpu_toolkit_modules,omitempty" yaml:"gpu_toolkit_modules,omitempty"`
 	Filesystem        Filesystem          `json:"filesystem" yaml:"filesystem"`
 	NodeTypes         map[string]NodeType `json:"node_types" yaml:"node_types"`
@@ -66,6 +65,50 @@ type MPIExternal struct {
 	Prefix     string   `json:"prefix" yaml:"prefix"`
 	Compiler   string   `json:"compiler,omitempty" yaml:"compiler,omitempty"`
 	Modules    []string `json:"modules,omitempty" yaml:"modules,omitempty"`
+}
+
+// CompilerProvider is a compiler external tagged with its provider family
+// (cray-pe, platform, site, system). This is the generic, emitted shape; the
+// probes detect family-specific facts and a transform produces these.
+type CompilerProvider struct {
+	Name           string            `json:"name" yaml:"name"`
+	Version        string            `json:"version" yaml:"version"`
+	Prefix         string            `json:"prefix" yaml:"prefix"`
+	ProviderFamily string            `json:"provider_family" yaml:"provider_family"`
+	Languages      []string          `json:"languages" yaml:"languages"`
+	Modules        []string          `json:"modules,omitempty" yaml:"modules,omitempty"`
+	Compilers      *CompilerCommands `json:"compilers,omitempty" yaml:"compilers,omitempty"`
+}
+
+// CompilerCommands holds optional explicit driver paths.
+type CompilerCommands struct {
+	C       string `json:"c,omitempty" yaml:"c,omitempty"`
+	Cxx     string `json:"cxx,omitempty" yaml:"cxx,omitempty"`
+	Fortran string `json:"fortran,omitempty" yaml:"fortran,omitempty"`
+}
+
+// MPIProvider is an MPI external tagged with provider family. Either
+// single-prefix (Prefix [+ Modules]) or per-compiler Flavors.
+type MPIProvider struct {
+	Name           string               `json:"name" yaml:"name"`
+	Version        string               `json:"version" yaml:"version"`
+	ProviderFamily string               `json:"provider_family" yaml:"provider_family"`
+	Prefix         string               `json:"prefix,omitempty" yaml:"prefix,omitempty"`
+	Modules        []string             `json:"modules,omitempty" yaml:"modules,omitempty"`
+	Compiler       string               `json:"compiler,omitempty" yaml:"compiler,omitempty"`
+	Compatibility  *MPICompatibility    `json:"compatibility,omitempty" yaml:"compatibility,omitempty"`
+	Flavors        map[string]MPIFlavor `json:"flavors,omitempty" yaml:"flavors,omitempty"`
+}
+
+// MPICompatibility records which compilers an MPI provider supports.
+type MPICompatibility struct {
+	Compilers []string `json:"compilers,omitempty" yaml:"compilers,omitempty"`
+}
+
+// MPIFlavor is a per-compiler MPI build at a distinct prefix.
+type MPIFlavor struct {
+	Prefix  string   `json:"prefix" yaml:"prefix"`
+	Modules []string `json:"modules" yaml:"modules"`
 }
 
 type VendorCray struct {

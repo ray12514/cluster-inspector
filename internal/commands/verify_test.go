@@ -50,15 +50,12 @@ func TestValidateProfileSemanticsRejectsAMDWithoutROCm(t *testing.T) {
 
 func TestValidateProfileSemanticsRejectsUnknownCrayMPICHFlavor(t *testing.T) {
 	profile := minimalSemanticProfile()
-	profile.VendorCray = &model.VendorCray{
-		PEVersion: "8.1.29",
-		CrayMPICH: &model.CrayMPICHBlock{
-			Version: "8.1.29",
-			Flavors: map[string]model.CrayMPICHFlavor{
-				"unknown": {Prefix: "/opt/cray/pe/mpich/8.1.29", Modules: []string{"cray-mpich/8.1.29"}},
-			},
+	profile.MPIProviders = []model.MPIProvider{{
+		Name: "cray-mpich", Version: "8.1.29", ProviderFamily: "cray-pe",
+		Flavors: map[string]model.MPIFlavor{
+			"unknown": {Prefix: "/opt/cray/pe/mpich/8.1.29", Modules: []string{"cray-mpich/8.1.29"}},
 		},
-	}
+	}}
 	errs := validateProfileSemantics(profile)
 	assertSemanticErrorContains(t, errs, "unsupported flavor unknown")
 }
@@ -72,10 +69,10 @@ func TestValidateProfileSemanticsRejectsNonEthernetWithoutDrivers(t *testing.T) 
 
 func TestValidateProfileSemanticsRejectsMPICompilerNotInExternals(t *testing.T) {
 	profile := minimalSemanticProfile()
-	profile.CompilersExternal = []model.CompilerExternal{{Name: "gcc", Version: "13.2.0"}}
-	profile.MPI = []model.MPIExternal{{Name: "openmpi", Version: "5.0.0", Compiler: "aocc@4.2"}}
+	profile.CompilerProviders = []model.CompilerProvider{{Name: "gcc", Version: "13.2.0"}}
+	profile.MPIProviders = []model.MPIProvider{{Name: "openmpi", Version: "5.0.0", Compiler: "aocc@4.2"}}
 	errs := validateProfileSemantics(profile)
-	assertSemanticErrorContains(t, errs, "does not match compilers_external")
+	assertSemanticErrorContains(t, errs, "does not match compiler_providers")
 }
 
 func TestVerifyProfileReportsSemanticFailure(t *testing.T) {

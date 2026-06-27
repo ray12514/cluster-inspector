@@ -238,12 +238,19 @@ func validateROCmComponents(rocm *model.ROCmToolkitModule) []string {
 }
 
 func validateCraySemantics(profile *model.Profile) []string {
-	if profile.VendorCray == nil || profile.VendorCray.CrayMPICH == nil {
+	var crayMPICH *model.MPIProvider
+	for i := range profile.MPIProviders {
+		if profile.MPIProviders[i].Name == "cray-mpich" {
+			crayMPICH = &profile.MPIProviders[i]
+			break
+		}
+	}
+	if crayMPICH == nil {
 		return nil
 	}
 	errors := []string{}
-	flavors := make([]string, 0, len(profile.VendorCray.CrayMPICH.Flavors))
-	for flavor := range profile.VendorCray.CrayMPICH.Flavors {
+	flavors := make([]string, 0, len(crayMPICH.Flavors))
+	for flavor := range crayMPICH.Flavors {
 		flavors = append(flavors, flavor)
 	}
 	sort.Strings(flavors)
@@ -251,7 +258,7 @@ func validateCraySemantics(profile *model.Profile) []string {
 		switch flavor {
 		case "cce", "gcc", "aocc", "intel", "rocmcc", "nvhpc":
 		default:
-			errors = append(errors, "vendor_cray.cray_mpich.flavors contains unsupported flavor "+flavor)
+			errors = append(errors, "mpi_providers cray-mpich flavors contains unsupported flavor "+flavor)
 		}
 	}
 	return errors
@@ -259,18 +266,18 @@ func validateCraySemantics(profile *model.Profile) []string {
 
 func validateMPISemantics(profile *model.Profile) []string {
 	errors := []string{}
-	for i, mpi := range profile.MPI {
+	for i, mpi := range profile.MPIProviders {
 		if strings.TrimSpace(mpi.Compiler) == "" {
 			continue
 		}
-		if !compilerReferenceExists(profile.CompilersExternal, mpi.Compiler) {
-			errors = append(errors, fmt.Sprintf("mpi[%d].compiler %q does not match compilers_external", i, mpi.Compiler))
+		if !compilerReferenceExists(profile.CompilerProviders, mpi.Compiler) {
+			errors = append(errors, fmt.Sprintf("mpi_providers[%d].compiler %q does not match compiler_providers", i, mpi.Compiler))
 		}
 	}
 	return errors
 }
 
-func compilerReferenceExists(compilers []model.CompilerExternal, ref string) bool {
+func compilerReferenceExists(compilers []model.CompilerProvider, ref string) bool {
 	name, version, _ := strings.Cut(ref, "@")
 	for _, compiler := range compilers {
 		if compiler.Name != name {
