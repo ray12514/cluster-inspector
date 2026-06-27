@@ -44,11 +44,11 @@ func ProbeFabric() FabricResult {
 }
 
 func hasCXIEvidence() bool {
-	return isDir("/sys/class/cxi") || isDir("/dev/cxi") || firstExistingDir("/opt/cray/pe/cxi") != ""
+	return firstExistingPolicyRoot(policy().Fabric.CXIDevicePaths) != "" || firstExistingPolicyRoot(policy().Fabric.CXIUserspaceRoots) != ""
 }
 
 func hasInfiniBandEvidence() bool {
-	entries, err := os.ReadDir("/sys/class/infiniband")
+	entries, err := os.ReadDir(policy().Fabric.InfiniBandClassPath)
 	if err != nil {
 		return false
 	}
@@ -74,13 +74,13 @@ func probeFabricDrivers(evidenceMap map[string]model.Evidence) []model.NamedPref
 		drivers = append(drivers, model.NamedPrefixVersioned{Name: "rdma-core", Version: strings.TrimSpace(out), Prefix: "/usr"})
 		appendEvidence(evidenceMap, "fabric.drivers.rdma-core", evidence(model.ConfidenceProbed, "dpkg-query rdma-core"))
 	}
-	if isDir("/opt/cray/pe/cxi") {
-		version := latestChildVersion("/opt/cray/pe/cxi")
+	if root := firstExistingPolicyRoot(policy().Fabric.CXIUserspaceRoots); root != "" {
+		version := latestChildVersion(root)
 		if version == "" {
 			version = "unknown"
 		}
-		drivers = append(drivers, model.NamedPrefixVersioned{Name: "cxi", Version: version, Prefix: "/opt/cray/pe/cxi"})
-		appendEvidence(evidenceMap, "fabric.drivers.cxi", evidence(model.ConfidenceProbed, "/opt/cray/pe/cxi"))
+		drivers = append(drivers, model.NamedPrefixVersioned{Name: "cxi", Version: version, Prefix: root})
+		appendEvidence(evidenceMap, "fabric.drivers.cxi", evidence(model.ConfidenceProbed, root))
 	}
 	return drivers
 }

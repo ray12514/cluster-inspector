@@ -49,10 +49,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	system := probes.ProbeSystem(systemName)
 	modules := probes.ProbeModules()
 	fabric := probes.ProbeFabric()
-	platformProviders := probes.ProbeCrayPEWithModules(modules.Candidates, hints)
-	compilers := probes.ProbeCompilersExternalWithModules(modules.Candidates, hints)
-	mpi := probes.ProbeMPIWithModules(modules.Candidates, hints)
-	gpuToolkits := probes.ProbeGPUToolkitModulesWithModules(modules.Candidates, hints)
+	providers := probes.ProbeProviderInventory(modules.Candidates, hints)
 	systemExternals := probes.ProbeSystemExternals(hints)
 	filesystem := probes.ProbeFilesystem()
 
@@ -60,10 +57,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	mergeEvidence(evidence, system.Evidence)
 	mergeEvidence(evidence, modules.Evidence)
 	mergeEvidence(evidence, fabric.Evidence)
-	mergeEvidence(evidence, platformProviders.Evidence)
-	mergeEvidence(evidence, compilers.Evidence)
-	mergeEvidence(evidence, mpi.Evidence)
-	mergeEvidence(evidence, gpuToolkits.Evidence)
+	mergeEvidence(evidence, providers.Evidence)
 	mergeEvidence(evidence, systemExternals.Evidence)
 	mergeEvidence(evidence, filesystem.Evidence)
 
@@ -73,9 +67,9 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 		OS:                system.OS,
 		Fabric:            fabric.Fabric,
 		ModulesSystem:     modules.ModulesSystem,
-		CompilerProviders: append(platformProviders.CompilerProviders, compilers.CompilerProviders...),
-		MPIProviders:      append(platformProviders.MPIProviders, mpi.MPIProviders...),
-		GPUToolkitModules: gpuToolkits.Toolkits,
+		CompilerProviders: providers.CompilerProviders,
+		MPIProviders:      providers.MPIProviders,
+		GPUToolkitModules: providers.GPUToolkits,
 		SystemExternals:   systemExternals.Externals,
 		Filesystem:        filesystem.Filesystem,
 		ModulePaths:       modules.ModulePaths,

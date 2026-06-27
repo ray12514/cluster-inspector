@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -25,6 +26,10 @@ func verifyModules(modules []string) (moduleVerification, error) {
 	defer cancel()
 	args := append([]string{"-c", moduleVerifyScript, "cluster-inspector-module-verify"}, cleanModules...)
 	cmd := exec.CommandContext(ctx, "bash", args...)
+	cmd.Env = append(os.Environ(),
+		"CLUSTER_INSPECTOR_VERIFY_ENV_KEYS="+strings.Join(moduleVerificationEnvKeys(), " "),
+		"CLUSTER_INSPECTOR_VERIFY_COMMANDS="+strings.Join(moduleVerificationCommands(), " "),
+	)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -65,18 +70,46 @@ else
   exit 42
 fi
 
-for key in CRAYPE_VERSION PE_ENV CRAY_PE_CCE_PREFIX CRAY_CC_VERSION GCC_PATH AOCC_HOME AOCC_ROOT AOMP INTEL_PATH INTEL_HOME ONEAPI_ROOT CMPLR_ROOT ROCM_PATH NVHPC_ROOT CRAY_MPICH_VERSION MPICH_DIR MPI_HOME I_MPI_ROOT CUDA_HOME CUDA_PATH; do
+for key in $CLUSTER_INSPECTOR_VERIFY_ENV_KEYS; do
   value="${!key-}"
   printf 'ENV:%s=%s\n' "$key" "$value"
 done
 
-for command_name in cc CC ftn gcc g++ gfortran clang clang++ amdclang amdclang++ flang icx icpx ifx icc icpc ifort nvc nvc++ nvfortran mpicc mpirun hipcc nvcc; do
+for command_name in $CLUSTER_INSPECTOR_VERIFY_COMMANDS; do
   command_path="$(command -v "$command_name" 2>/dev/null || true)"
   if [ -n "$command_path" ]; then
     printf 'CMD:%s=%s\n' "$command_name" "$command_path"
   fi
 done
 `
+
+func moduleVerificationEnvKeys() []string {
+	keys := []string{}
+	keys = append(keys, crayPEPolicy().EvidenceEnv...)
+	for _, compiler := range policy().Compilers {
+		keys = append(keys, compiler.Env...)
+	}
+	for _, mpi := range policy().MPI {
+		keys = append(keys, mpi.Env...)
+	}
+	for _, toolkit := range policy().GPUToolkits {
+		keys = append(keys, toolkit.Env...)
+	}
+	return uniqueStrings(keys)
+}
+
+func moduleVerificationCommands() []string {
+	commands := []string{"mpicc", "mpirun"}
+	for _, compiler := range policy().Compilers {
+		commands = append(commands, compiler.CC...)
+		commands = append(commands, compiler.Cxx...)
+		commands = append(commands, compiler.Fortran...)
+	}
+	for _, toolkit := range policy().GPUToolkits {
+		commands = append(commands, toolkit.Commands...)
+	}
+	return uniqueStrings(commands)
+}
 
 func parseModuleVerification(out string) moduleVerification {
 	verification := moduleVerification{

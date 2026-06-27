@@ -7,8 +7,6 @@ import (
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
 
-var defaultSystemExternalFocus = []string{"openssl", "curl"}
-
 // SystemExternalsResult contains focused ordinary package external candidates.
 type SystemExternalsResult struct {
 	Externals []model.SystemExternal
@@ -35,12 +33,13 @@ func focusedSystemExternalNames(hints *inspectorhints.Hints, evidenceMap map[str
 	if hints != nil {
 		moduleHints = hints.SystemExternals
 	}
-	candidates := append([]string{}, defaultSystemExternalFocus...)
+	defaultFocus := policy().SystemExternals.DefaultFocus
+	candidates := append([]string{}, defaultFocus...)
 	candidates = append(candidates, moduleHints.Include...)
 	result, err := inspectorhints.Apply(candidates, moduleHints, nil)
 	if err != nil {
 		appendEvidence(evidenceMap, "system_externals.hints", evidence(model.ConfidenceUnknown, err.Error()))
-		return defaultSystemExternalFocus
+		return defaultFocus
 	}
 	if len(result.Rejected) > 0 || len(result.MissingIncludes) > 0 {
 		appendEvidence(evidenceMap, "system_externals.hints", evidence(model.ConfidenceInferred, "inspector-hints system_externals filter applied"))

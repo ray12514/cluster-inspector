@@ -125,6 +125,20 @@ func appendEvidence(dst map[string]model.Evidence, key string, value model.Evide
 	dst[key] = value
 }
 
+func uniqueStrings(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
 func commandSource(name string, args ...string) string {
 	if len(args) == 0 {
 		return name

@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
@@ -70,22 +69,25 @@ func ProbeCrayPEWithModules(candidates []ModuleCandidate, hints *inspectorhints.
 
 	peVersion := os.Getenv("CRAYPE_VERSION")
 	if peVersion == "" {
-		peVersion = latestChildVersion("/opt/cray/pe")
+		peVersion = latestChildVersion(crayPEPolicy().PERoot)
 	}
 	if peVersion == "" {
 		peVersion = "unknown"
 		appendEvidence(result.Evidence, "provider.platform.cray-pe.version", evidence(model.ConfidenceUnknown, "Cray PE present; version unavailable"))
 	} else {
-		appendEvidence(result.Evidence, "provider.platform.cray-pe.version", evidence(model.ConfidenceProbed, "CRAYPE_VERSION or /opt/cray/pe"))
+		appendEvidence(result.Evidence, "provider.platform.cray-pe.version", evidence(model.ConfidenceProbed, "CRAYPE_VERSION or "+crayPEPolicy().PERoot))
 	}
 
 	vendor := &crayPEInventory{PEVersion: peVersion}
-	vendor.CCE = crayCompiler("cce", os.Getenv("CRAY_PE_CCE_PREFIX"), "/opt/cray/pe/cce", []string{"PrgEnv-cray"})
-	vendor.GCC = crayCompiler("gcc", os.Getenv("GCC_PATH"), "/opt/cray/pe/gcc", []string{"PrgEnv-gnu"})
+	peRoot := crayPEPolicy().PERoot
+	vendor.CCE = crayCompiler("cce", firstNonEmptyEnv(compilerEnvKeys("cce")...), filepath.Join(peRoot, "cce"), []string{compilerProgramEnvironmentModule("cce")})
+	vendor.GCC = crayCompiler("gcc", firstNonEmptyEnv(compilerEnvKeys("gcc")...), filepath.Join(peRoot, "gcc"), []string{compilerProgramEnvironmentModule("gcc")})
 	vendor.AOCC = crayAOCCCompiler()
 	vendor.Intel = crayIntelCompiler()
-	vendor.ROCmCC = crayCompiler("rocmcc", os.Getenv("ROCM_PATH"), "/opt/rocm", []string{"PrgEnv-amd"})
-	vendor.NVHPC = crayCompiler("nvhpc", os.Getenv("NVHPC_ROOT"), "/opt/nvidia/hpc_sdk", []string{"PrgEnv-nvidia"})
+	rocmPolicy, _ := gpuToolkitPolicyByName("rocm")
+	nvhpcPolicy, _ := gpuToolkitPolicyByName("nvhpc")
+	vendor.ROCmCC = crayCompiler("rocmcc", firstNonEmptyEnv(compilerEnvKeys("rocmcc")...), firstExistingPolicyRoot(rocmPolicy.Roots), []string{compilerProgramEnvironmentModule("rocmcc")})
+	vendor.NVHPC = crayCompiler("nvhpc", firstNonEmptyEnv(compilerEnvKeys("nvhpc")...), firstExistingPolicyRoot(nvhpcPolicy.Roots), []string{compilerProgramEnvironmentModule("nvhpc")})
 	vendor.CrayMPICH = crayMPICH()
 	vendor.LibSci = crayLibSci()
 	applyVerifiedCrayModules(vendor, candidates, hints, result.Evidence)
@@ -97,7 +99,7 @@ func ProbeCrayPEWithModules(candidates []ModuleCandidate, hints *inspectorhints.
 	appendCrayCompilerEvidence(result.Evidence, "rocmcc", vendor.ROCmCC)
 	appendCrayCompilerEvidence(result.Evidence, "nvhpc", vendor.NVHPC)
 	if vendor.CrayMPICH != nil {
-		appendEvidence(result.Evidence, "mpi_providers.cray-mpich", evidence(model.ConfidenceProbed, "CRAY_MPICH_VERSION/MPICH_DIR or /opt/cray/pe/mpich"))
+		appendEvidence(result.Evidence, "mpi_providers.cray-mpich", evidence(model.ConfidenceProbed, "Cray MPICH environment or "+filepath.Join(crayPEPolicy().PERoot, "mpich")))
 	}
 	result.CompilerProviders = crayCompilerProviders(vendor)
 	result.MPIProviders = crayMPIProviders(vendor)
@@ -164,10 +166,11 @@ func crayModuleEvidencePresent(candidates []ModuleCandidate) bool {
 		if stringSliceContains(candidate.Categories, "cray_pe") {
 			return true
 		}
-		if moduleHasSegmentPrefix(candidate.Name, "prgenv-", "craype-", "cray-libsci") {
+		if moduleHasSegmentPrefix(candidate.Name, crayPEPolicy().ModulePrefixes...) ||
+			moduleHasSegment(candidate.Name, crayPEPolicy().ModuleSegments...) {
 			return true
 		}
-		if mpiNameFromModule(candidate.Name) == "cray-mpich" {
+		if mpiPolicyPlatformOwned(mpiNameFromModule(candidate.Name)) {
 			return true
 		}
 	}
@@ -268,21 +271,10 @@ func crayFlavorFromModule(module string) string {
 
 func crayCompilerModuleSet(flavor, module string) []string {
 	moduleSet := []string{}
-	switch flavor {
-	case "cce":
-		moduleSet = append(moduleSet, "PrgEnv-cray")
-	case "gcc":
-		moduleSet = append(moduleSet, "PrgEnv-gnu")
-	case "aocc":
-		moduleSet = append(moduleSet, "PrgEnv-aocc")
-	case "intel":
-		moduleSet = append(moduleSet, "PrgEnv-intel")
-	case "rocmcc":
-		moduleSet = append(moduleSet, "PrgEnv-amd")
-	case "nvhpc":
-		moduleSet = append(moduleSet, "PrgEnv-nvidia")
+	if prgEnv := compilerProgramEnvironmentModule(crayCompilerName(flavor)); prgEnv != "" {
+		moduleSet = append(moduleSet, prgEnv)
 	}
-	if !strings.HasPrefix(strings.ToLower(module), "prgenv-") {
+	if !moduleHasSegmentPrefix(module, crayPEPolicy().ModulePrefixes...) {
 		moduleSet = append(moduleSet, module)
 	}
 	return cleanModuleList(moduleSet)
@@ -388,21 +380,27 @@ func filterModuleNames(modules []string, keep func(string) bool) []string {
 }
 
 func crayAOCCCompiler() *crayCompilerBlock {
+	roots := append([]string{filepath.Join(crayPEPolicy().PERoot, "aocc")}, compilerPolicyRoots("aocc")...)
 	return crayCompiler(
 		"aocc",
-		firstNonEmptyEnv("AOCC_HOME", "AOCC_ROOT", "AOMP"),
-		firstExistingDir("/opt/cray/pe/aocc", "/opt/AMD/aocc-compiler", "/opt/AMD"),
-		[]string{"PrgEnv-aocc"},
+		firstNonEmptyEnv(compilerEnvKeys("aocc")...),
+		firstExistingDir(roots...),
+		[]string{compilerProgramEnvironmentModule("aocc")},
 	)
 }
 
 func crayIntelCompiler() *crayCompilerBlock {
+	roots := append([]string{filepath.Join(crayPEPolicy().PERoot, "intel")}, compilerPolicyRoots("intel")...)
 	return crayCompiler(
 		"intel",
-		firstNonEmptyEnv("INTEL_PATH", "INTEL_HOME", "ONEAPI_ROOT", "CMPLR_ROOT"),
-		firstExistingDir("/opt/cray/pe/intel", "/opt/intel/oneapi/compiler", "/opt/intel"),
-		[]string{"PrgEnv-intel"},
+		firstNonEmptyEnv(compilerEnvKeys("intel")...),
+		firstExistingDir(roots...),
+		[]string{compilerProgramEnvironmentModule("intel")},
 	)
+}
+
+func compilerProgramEnvironmentModule(name string) string {
+	return firstNonEmptyString(compilerPolicyModulePrefixes(name)...)
 }
 
 func appendCrayCompilerEvidence(evidenceMap map[string]model.Evidence, name string, compiler *crayCompilerBlock) {
@@ -418,6 +416,8 @@ func crayCompiler(name, envPrefix, fallbackRoot string, modules []string) *crayC
 		version := latestChildVersion(fallbackRoot)
 		if version != "" {
 			prefix = filepath.Join(fallbackRoot, version)
+		} else {
+			prefix = fallbackRoot
 		}
 	}
 	if prefix == "" {
@@ -443,10 +443,11 @@ func crayMPICH() *crayMPICHBlock {
 	if version == "" && prefix != "" {
 		version = firstVersion(prefix)
 	}
-	if prefix == "" && isDir("/opt/cray/pe/mpich") {
-		version = latestChildVersion("/opt/cray/pe/mpich")
+	mpichRoot := filepath.Join(crayPEPolicy().PERoot, "mpich")
+	if prefix == "" && isDir(mpichRoot) {
+		version = latestChildVersion(mpichRoot)
 		if version != "" {
-			prefix = filepath.Join("/opt/cray/pe/mpich", version)
+			prefix = filepath.Join(mpichRoot, version)
 		}
 	}
 	if version == "" || prefix == "" {
@@ -493,10 +494,11 @@ func firstNonEmptyEnv(names ...string) string {
 
 func crayLibSci() *crayLibSciBlock {
 	prefix := os.Getenv("CRAY_LIBSCI_PREFIX_DIR")
-	if prefix == "" && isDir("/opt/cray/pe/libsci") {
-		version := latestChildVersion("/opt/cray/pe/libsci")
+	libsciRoot := filepath.Join(crayPEPolicy().PERoot, "libsci")
+	if prefix == "" && isDir(libsciRoot) {
+		version := latestChildVersion(libsciRoot)
 		if version != "" {
-			prefix = filepath.Join("/opt/cray/pe/libsci", version)
+			prefix = filepath.Join(libsciRoot, version)
 		}
 	}
 	if prefix == "" {

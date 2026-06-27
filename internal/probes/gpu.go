@@ -148,79 +148,89 @@ func amdArch(out string) string {
 }
 
 func probeROCmToolkit(evidenceMap map[string]model.Evidence) *model.ROCmToolkitModule {
-	prefix := firstExistingDir(envOrEmpty("ROCM_PATH"), "/opt/rocm")
-	if prefix == "" && commandPath("hipcc") != "" {
-		prefix = prefixFromCommand(commandPath("hipcc"))
-	}
+	policy, _ := gpuToolkitPolicyByName("rocm")
+	prefix := gpuToolkitPrefix(policy)
 	if prefix == "" {
 		return nil
 	}
-	version := ""
-	if out, err := run(filepathJoin(prefix, "bin", "hipcc"), "--version"); err == nil {
-		version = firstVersion(out)
-	}
-	if version == "" {
-		version = firstVersion(prefix)
-	}
+	version := gpuToolkitVersion(policy, prefix)
 	if version == "" {
 		version = "unknown"
 	}
-	appendEvidence(evidenceMap, "gpu_toolkit_modules.rocm", evidence(model.ConfidenceProbed, "ROCM_PATH/hipcc"))
+	appendEvidence(evidenceMap, "gpu_toolkit_modules.rocm", evidence(model.ConfidenceProbed, "ROCM_PATH/hipcc/policy roots"))
 	return &model.ROCmToolkitModule{
 		Version:         version,
-		Module:          "rocm/" + version,
+		Module:          gpuToolkitModuleName(policy, version),
 		Prefix:          prefix,
 		SpackComponents: rocmSpackComponents(prefix),
 	}
 }
 
-func probeCUDAToolkit(evidenceMap map[string]model.Evidence) *model.CUDAToolkitModule {
-	prefix := firstExistingDir(envOrEmpty("CUDA_HOME"), envOrEmpty("CUDA_PATH"), "/usr/local/cuda")
-	if prefix == "" && commandPath("nvcc") != "" {
-		prefix = prefixFromCommand(commandPath("nvcc"))
+func gpuToolkitPrefix(policy gpuToolkitPolicy) string {
+	for _, env := range policy.Env {
+		if prefix := envOrEmpty(env); prefix != "" {
+			return prefix
+		}
 	}
+	for _, command := range policy.Commands {
+		if path := commandPath(command); path != "" {
+			return prefixFromCommand(path)
+		}
+	}
+	return firstExistingPolicyRoot(policy.Roots)
+}
+
+func gpuToolkitVersion(policy gpuToolkitPolicy, prefix string) string {
+	if len(policy.Commands) > 0 {
+		command := filepathJoin(prefix, "bin", policy.Commands[0])
+		if out, err := run(command, "--version"); err == nil {
+			if version := firstVersion(out); version != "" {
+				return version
+			}
+		}
+	}
+	return firstVersion(prefix)
+}
+
+func gpuToolkitModuleName(policy gpuToolkitPolicy, version string) string {
+	if policy.ModuleTemplate == "" {
+		return policy.Name + "/" + version
+	}
+	return strings.ReplaceAll(policy.ModuleTemplate, "{version}", version)
+}
+
+func probeCUDAToolkit(evidenceMap map[string]model.Evidence) *model.CUDAToolkitModule {
+	policy, _ := gpuToolkitPolicyByName("cudatoolkit")
+	prefix := gpuToolkitPrefix(policy)
 	if prefix == "" {
 		return nil
 	}
-	version := ""
-	if out, err := run(filepathJoin(prefix, "bin", "nvcc"), "--version"); err == nil {
-		version = firstVersion(out)
-	}
-	if version == "" {
-		version = firstVersion(prefix)
-	}
+	version := gpuToolkitVersion(policy, prefix)
 	if version == "" {
 		version = "unknown"
 	}
-	appendEvidence(evidenceMap, "gpu_toolkit_modules.cudatoolkit", evidence(model.ConfidenceProbed, "CUDA_HOME/nvcc"))
+	appendEvidence(evidenceMap, "gpu_toolkit_modules.cudatoolkit", evidence(model.ConfidenceProbed, "CUDA_HOME/CUDA_PATH/nvcc/policy roots"))
 	return &model.CUDAToolkitModule{
 		Version: version,
-		Module:  "cudatoolkit/" + version,
+		Module:  gpuToolkitModuleName(policy, version),
 		Prefix:  prefix,
 	}
 }
 
 func probeNvhpcToolkit(evidenceMap map[string]model.Evidence) *model.NvhpcToolkitModule {
-	prefix := firstExistingDir(envOrEmpty("NVHPC_ROOT"), "/opt/nvidia/hpc_sdk")
-	if prefix == "" && commandPath("nvc") != "" {
-		prefix = prefixFromCommand(commandPath("nvc"))
-	}
+	policy, _ := gpuToolkitPolicyByName("nvhpc")
+	prefix := gpuToolkitPrefix(policy)
 	if prefix == "" {
 		return nil
 	}
-	version := firstVersion(prefix)
-	if version == "" && commandPath("nvc") != "" {
-		if out, err := run("nvc", "--version"); err == nil {
-			version = firstVersion(out)
-		}
-	}
+	version := gpuToolkitVersion(policy, prefix)
 	if version == "" {
 		version = "unknown"
 	}
-	appendEvidence(evidenceMap, "gpu_toolkit_modules.nvhpc", evidence(model.ConfidenceProbed, "NVHPC_ROOT/nvc"))
+	appendEvidence(evidenceMap, "gpu_toolkit_modules.nvhpc", evidence(model.ConfidenceProbed, "NVHPC_ROOT/nvc/policy roots"))
 	return &model.NvhpcToolkitModule{
 		Version: version,
-		Module:  "nvhpc/" + version,
+		Module:  gpuToolkitModuleName(policy, version),
 		Prefix:  prefix,
 	}
 }
@@ -310,20 +320,18 @@ func applyGPUToolkitExtras(toolkits *model.GPUToolkitModules, hints *inspectorhi
 }
 
 func gpuToolkitNameFromModule(module string) string {
-	switch {
-	case moduleHasSegment(module, "rocm"):
-		return "rocm"
-	case moduleHasSegment(module, "cuda", "cudatoolkit"):
-		return "cudatoolkit"
-	case moduleHasSegment(module, "nvhpc"):
-		return "nvhpc"
-	default:
-		return ""
+	for _, item := range policy().GPUToolkits {
+		if moduleHasSegment(module, item.ModuleSegments...) {
+			return item.Name
+		}
 	}
+	return ""
 }
 
 func rocmToolkitFromVerification(module string, verification moduleVerification) (*model.ROCmToolkitModule, bool) {
-	prefix := firstNonEmptyString(verification.Env["ROCM_PATH"], prefixFromCommand(verification.Commands["hipcc"]))
+	policy, _ := gpuToolkitPolicyByName("rocm")
+	prefix := firstNonEmptyString(gpuToolkitEnvValues(policy, verification)...)
+	prefix = firstNonEmptyString(prefix, gpuToolkitCommandPrefix(policy, verification))
 	if prefix == "" {
 		return nil, false
 	}
@@ -343,7 +351,9 @@ func rocmToolkitFromVerification(module string, verification moduleVerification)
 }
 
 func cudaToolkitFromVerification(module string, verification moduleVerification) (*model.CUDAToolkitModule, bool) {
-	prefix := firstNonEmptyString(verification.Env["CUDA_HOME"], verification.Env["CUDA_PATH"], prefixFromCommand(verification.Commands["nvcc"]))
+	policy, _ := gpuToolkitPolicyByName("cudatoolkit")
+	prefix := firstNonEmptyString(gpuToolkitEnvValues(policy, verification)...)
+	prefix = firstNonEmptyString(prefix, gpuToolkitCommandPrefix(policy, verification))
 	if prefix == "" {
 		return nil, false
 	}
@@ -358,7 +368,9 @@ func cudaToolkitFromVerification(module string, verification moduleVerification)
 }
 
 func nvhpcToolkitFromVerification(module string, verification moduleVerification) (*model.NvhpcToolkitModule, bool) {
-	prefix := firstNonEmptyString(verification.Env["NVHPC_ROOT"], prefixFromCommand(verification.Commands["nvc"]))
+	policy, _ := gpuToolkitPolicyByName("nvhpc")
+	prefix := firstNonEmptyString(gpuToolkitEnvValues(policy, verification)...)
+	prefix = firstNonEmptyString(prefix, gpuToolkitCommandPrefix(policy, verification))
 	if prefix == "" {
 		return nil, false
 	}
@@ -372,15 +384,31 @@ func nvhpcToolkitFromVerification(module string, verification moduleVerification
 	return &model.NvhpcToolkitModule{Version: version, Module: module, Prefix: prefix}, true
 }
 
-func rocmSpackComponents(prefix string) []model.SpackComponent {
-	return []model.SpackComponent{
-		{Package: "hip", Prefix: filepath.Join(prefix, "hip")},
-		{Package: "hsa-rocr-dev", Prefix: prefix},
-		{Package: "comgr", Prefix: prefix},
-		{Package: "rocblas", Prefix: prefix},
-		{Package: "hipblas", Prefix: prefix},
-		{Package: "hipsparse", Prefix: prefix},
-		{Package: "rocprim", Prefix: filepath.Join(prefix, "rocprim")},
-		{Package: "llvm-amdgpu", Prefix: prefix},
+func gpuToolkitEnvValues(policy gpuToolkitPolicy, verification moduleVerification) []string {
+	values := make([]string, 0, len(policy.Env))
+	for _, env := range policy.Env {
+		values = append(values, verification.Env[env])
 	}
+	return values
+}
+
+func gpuToolkitCommandPrefix(policy gpuToolkitPolicy, verification moduleVerification) string {
+	for _, command := range policy.Commands {
+		if prefix := prefixFromCommand(verification.Commands[command]); prefix != "" {
+			return prefix
+		}
+	}
+	return ""
+}
+
+func rocmSpackComponents(prefix string) []model.SpackComponent {
+	policy, _ := gpuToolkitPolicyByName("rocm")
+	out := make([]model.SpackComponent, 0, len(policy.SpackComponents))
+	for _, component := range policy.SpackComponents {
+		out = append(out, model.SpackComponent{
+			Package: component.Package,
+			Prefix:  componentPrefix(prefix, component),
+		})
+	}
+	return out
 }

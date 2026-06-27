@@ -89,29 +89,3 @@ func TestCompilerNameFromProviderPrefixedModule(t *testing.T) {
 		})
 	}
 }
-
-func TestActiveCrayPrgEnvCompiler(t *testing.T) {
-	cases := []struct {
-		peEnv      string
-		candidate  string
-		wantActive bool
-	}{
-		{"GNU", "gcc", true},
-		{"GNU", "intel", false},
-		{"AOCC", "aocc", true},
-		{"INTEL", "intel", true},
-		{"INTEL", "oneapi", true},
-		{"NVIDIA", "nvhpc", true},
-		{"NVIDIA", "gcc", false},
-		{"", "gcc", false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.peEnv+"_"+tc.candidate, func(t *testing.T) {
-			t.Setenv("PE_ENV", tc.peEnv)
-			if got := activeCrayPrgEnvCompiler(tc.candidate); got != tc.wantActive {
-				t.Fatalf("PE_ENV=%q + %q: got %v, want %v",
-					tc.peEnv, tc.candidate, got, tc.wantActive)
-			}
-		})
-	}
-}

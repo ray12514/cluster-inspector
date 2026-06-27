@@ -322,9 +322,10 @@ func segmentCategoriesForModule(name string) []string {
 	if moduleHasSegment(name, "libfabric", "ucx", "cxi") {
 		categories = append(categories, "fabric_userspace")
 	}
-	if moduleHasSegmentPrefix(name, "prgenv-", "craype-") ||
-		moduleHasSegment(name, "cray-mpich", "cray-libsci") {
-		categories = append(categories, "cray_pe")
+	for _, platform := range policy().Platforms {
+		if moduleHasSegmentPrefix(name, platform.ModulePrefixes...) || moduleHasSegment(name, platform.ModuleSegments...) {
+			categories = append(categories, platform.ModuleCategories...)
+		}
 	}
 	return categories
 }
@@ -354,15 +355,44 @@ func loadModulePatterns() modulePatternFile {
 }
 
 func fallbackModulePatterns() modulePatternFile {
+	categories := map[string][]string{
+		"compiler":         {},
+		"mpi":              {},
+		"gpu_toolkit":      {},
+		"fabric_userspace": {"libfabric/*", "*/libfabric/*", "ucx/*", "*/ucx/*", "cxi/*", "*/cxi/*"},
+	}
+	for _, item := range policy().Compilers {
+		for _, segment := range item.ModuleSegments {
+			categories["compiler"] = append(categories["compiler"], segment+"/*", "*/"+segment+"/*")
+		}
+		for _, prefix := range item.ModulePrefixes {
+			categories["compiler"] = append(categories["compiler"], prefix+"*", "*/"+prefix+"*")
+		}
+	}
+	for _, item := range policy().MPI {
+		for _, segment := range item.ModuleSegments {
+			categories["mpi"] = append(categories["mpi"], segment+"/*", "*/"+segment+"/*")
+		}
+	}
+	for _, item := range policy().GPUToolkits {
+		for _, segment := range item.ModuleSegments {
+			categories["gpu_toolkit"] = append(categories["gpu_toolkit"], segment+"/*", "*/"+segment+"/*")
+		}
+	}
+	for category, platform := range policy().Platforms {
+		if len(platform.ModuleCategories) > 0 {
+			category = platform.ModuleCategories[0]
+		}
+		for _, segment := range platform.ModuleSegments {
+			categories[category] = append(categories[category], segment+"/*", "*/"+segment+"/*")
+		}
+		for _, prefix := range platform.ModulePrefixes {
+			categories[category] = append(categories[category], prefix+"*", "*/"+prefix+"*")
+		}
+	}
 	return modulePatternFile{
 		SchemaVersion: 1,
-		Categories: map[string][]string{
-			"compiler":         {"gcc/*", "*/gcc/*", "gcc-native/*", "*/gcc-native/*", "aocc/*", "*/aocc/*", "cce/*", "*/cce/*", "intel/*", "*/intel/*", "oneapi/*", "*/oneapi/*", "nvhpc/*", "*/nvhpc/*", "rocmcc/*", "*/rocmcc/*", "PrgEnv-*", "*/PrgEnv-*"},
-			"mpi":              {"openmpi/*", "*/openmpi/*", "mpich/*", "*/mpich/*", "mvapich/*", "*/mvapich/*", "mvapich2/*", "*/mvapich2/*", "cray-mpich/*", "*/cray-mpich/*", "intel-mpi/*", "*/intel-mpi/*", "impi/*", "*/impi/*"},
-			"gpu_toolkit":      {"rocm/*", "*/rocm/*", "cuda/*", "*/cuda/*", "cudatoolkit/*", "*/cudatoolkit/*", "nvhpc/*", "*/nvhpc/*"},
-			"fabric_userspace": {"libfabric/*", "*/libfabric/*", "ucx/*", "*/ucx/*", "cxi/*", "*/cxi/*"},
-			"cray_pe":          {"PrgEnv-*", "*/PrgEnv-*", "craype-*", "*/craype-*", "cray-mpich/*", "*/cray-mpich/*", "cray-libsci/*", "*/cray-libsci/*"},
-		},
+		Categories:    categories,
 	}
 }
 

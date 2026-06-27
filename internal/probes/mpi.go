@@ -35,7 +35,7 @@ func ProbeMPIWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hin
 	result := MPIResult{Evidence: map[string]model.Evidence{}}
 	seen := map[string]bool{}
 	mpicc := commandPath("mpicc")
-	if mpicc != "" && !strings.HasPrefix(mpicc, "/opt/cray") {
+	if mpicc != "" && !platformOwnsPrefix(mpicc) {
 		name, version := detectMPINameVersion()
 		if name != "" && version != "" {
 			appendMPIProvider(&result.MPIProviders, seen, mpiProviderFromExternal(mpiExternal{
@@ -70,7 +70,7 @@ func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hint
 	out := []mpiExternal{}
 	for _, module := range accepted {
 		name := mpiNameFromModule(module)
-		if name == "cray-mpich" {
+		if mpiPolicyPlatformOwned(name) {
 			continue
 		}
 		if name == "" {
@@ -93,13 +93,9 @@ func verifiedMPIModules(candidates []ModuleCandidate, hints *inspectorhints.Hint
 }
 
 func mpiExternalFromVerification(name, module string, verification moduleVerification) (mpiExternal, bool) {
-	prefix := firstNonEmptyString(
-		verification.Env["MPI_HOME"],
-		verification.Env["MPICH_DIR"],
-		verification.Env["I_MPI_ROOT"],
-		prefixFromCommand(verification.Commands["mpicc"]),
-	)
-	if prefix == "" || strings.HasPrefix(prefix, "/opt/cray") {
+	prefix := firstNonEmptyString(mpiEnvValues(name, verification)...)
+	prefix = firstNonEmptyString(prefix, prefixFromCommand(verification.Commands["mpicc"]))
+	if prefix == "" || platformOwnsPrefix(prefix) {
 		return mpiExternal{}, false
 	}
 	version := moduleVersion(module)
@@ -118,32 +114,31 @@ func mpiExternalFromVerification(name, module string, verification moduleVerific
 	}, true
 }
 
+func mpiEnvValues(name string, verification moduleVerification) []string {
+	item, ok := mpiPolicyByName(name)
+	if !ok {
+		return nil
+	}
+	values := make([]string, 0, len(item.Env))
+	for _, env := range item.Env {
+		values = append(values, verification.Env[env])
+	}
+	return values
+}
+
 func mpiNameFromModule(module string) string {
-	for _, segment := range moduleSegments(module) {
-		switch segment {
-		case "cray-mpich":
-			return "cray-mpich"
-		case "openmpi":
-			return "openmpi"
-		case "mpich":
-			return "mpich"
-		case "mvapich", "mvapich2":
-			return "mvapich"
-		case "intel-mpi", "impi":
-			return "intel-mpi"
+	for _, item := range policy().MPI {
+		for _, segment := range moduleSegments(module) {
+			if stringSliceContains(item.ModuleSegments, segment) {
+				return item.Name
+			}
 		}
 	}
 	return ""
 }
 
 func mpiProvenanceFromPrefix(prefix string) string {
-	if strings.HasPrefix(prefix, "/usr/") || strings.HasPrefix(prefix, "/bin/") {
-		return "system"
-	}
-	if strings.HasPrefix(prefix, "/opt/cray") || strings.HasPrefix(prefix, "/opt/nvidia") || strings.HasPrefix(prefix, "/opt/rocm") {
-		return "vendor_bundled"
-	}
-	return "site"
+	return providerFamilyFromPrefix(prefix)
 }
 
 func mpiExtras(hints *inspectorhints.Hints) []mpiExternal {
@@ -165,9 +160,9 @@ func mpiExtras(hints *inspectorhints.Hints) []mpiExternal {
 }
 
 func mpiProviderFromExternal(mpi mpiExternal) model.MPIProvider {
-	family := "site"
-	if mpi.Provenance == "system" || strings.HasPrefix(mpi.Prefix, "/usr") {
-		family = "system"
+	family := mpi.Provenance
+	if family != "system" && family != "site" {
+		family = providerFamilyFromPrefix(mpi.Prefix)
 	}
 	return model.MPIProvider{
 		Name:           mpi.Name,
@@ -224,10 +219,7 @@ func mpiProvenance(mpicc string) string {
 	if strings.HasPrefix(mpicc, "/usr/local/") {
 		return "site"
 	}
-	if strings.HasPrefix(mpicc, "/usr/") || strings.HasPrefix(mpicc, "/bin/") {
-		return "system"
-	}
-	return "site"
+	return providerFamilyFromPrefix(mpicc)
 }
 
 func firstNonEmptyString(values ...string) string {
@@ -237,4 +229,9 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func mpiPolicyPlatformOwned(name string) bool {
+	item, ok := mpiPolicyByName(name)
+	return ok && item.PlatformOwned
 }

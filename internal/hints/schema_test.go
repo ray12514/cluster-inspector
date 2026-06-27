@@ -124,6 +124,38 @@ extras:
 	}
 }
 
+func TestValidateMPIExtraProviderFamilyMatchesProfileSchema(t *testing.T) {
+	_, err := Parse(strings.NewReader(`schema_version: 1
+extras:
+  mpi:
+    - module: cray-mpich/8.1.29
+      name: cray-mpich
+      provenance: platform
+      version: 8.1.29
+      prefix: /opt/cray/pe/mpich/8.1.29
+      compiler: cce@17.0.1
+`))
+	if err != nil {
+		t.Fatalf("platform provenance should be accepted: %v", err)
+	}
+}
+
+func TestValidateRejectsObsoleteMPIExtraProvenance(t *testing.T) {
+	_, err := Parse(strings.NewReader(`schema_version: 1
+extras:
+  mpi:
+    - module: cray-mpich/8.1.29
+      name: cray-mpich
+      provenance: vendor_bundled
+      version: 8.1.29
+      prefix: /opt/cray/pe/mpich/8.1.29
+      compiler: cce@17.0.1
+`))
+	if err == nil {
+		t.Fatal("expected obsolete provenance error")
+	}
+}
+
 func assertStrings(t *testing.T, got, want []string) {
 	t.Helper()
 	if len(got) != len(want) {

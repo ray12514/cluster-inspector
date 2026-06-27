@@ -52,6 +52,9 @@ Acceptance per design doc:
 - [x] `internal/probes/mpi.go` — generic MPI providers (openmpi, mpich, etc.)
 - [x] `internal/probes/gpu.go` — GPU vendor detection, driver, toolkit ceiling
 - [x] `internal/probes/filesystem.go` — install-tree, source-cache, buildcache candidates
+- [x] `internal/resources/discovery_policy.yaml` + `internal/probes/provider_adapters.go` —
+      shared discovery vocabulary and provider-adapter seam; generic Linux is
+      the default adapter, Cray PE/CPE is a platform adapter
 - [x] Evidence capture for every probe
 - [x] `unknown` confidence handling when commands are missing
 - [x] Table-driven parser tests landed for system / modules / cray / fabric / mpi / gpu / compiler / helpers (run via `go test ./...`); evidence on real Linux + Cray hosts still depends on running the binary there (deferred to the test cluster)
@@ -108,3 +111,5 @@ Acceptance per design doc:
 3. For new work, update the design doc in `stack-planning` first when behavior
    changes the contract.
 4. Run `make lint test validate` before committing.
+5. Keep discovery vocabulary in `internal/resources/discovery_policy.yaml`
+   unless a provider-specific adapter is required to interrogate platform facts.

@@ -36,25 +36,15 @@ func ProbeCompilersExternal() CompilersResult {
 func ProbeCompilersExternalWithModules(candidates []ModuleCandidate, hints *inspectorhints.Hints) CompilersResult {
 	result := CompilersResult{Evidence: map[string]model.Evidence{}}
 	seen := map[string]bool{}
-	for _, candidate := range []compilerCandidate{
-		{name: "gcc", cc: []string{"gcc"}, cxx: []string{"g++"}, fc: []string{"gfortran"}},
-		{name: "aocc", cc: []string{"amdclang", "clang"}, cxx: []string{"amdclang++", "clang++"}, fc: []string{"flang"}, env: []string{"AOCC_HOME", "AOCC_ROOT", "AOMP"}},
-		{name: "oneapi", cc: []string{"icx"}, cxx: []string{"icpx"}, fc: []string{"ifx"}, env: []string{"ONEAPI_ROOT", "CMPLR_ROOT"}},
-		{name: "intel", cc: []string{"icc"}, cxx: []string{"icpc"}, fc: []string{"ifort"}, env: []string{"INTEL_PATH", "INTEL_HOME"}},
-		{name: "nvhpc", cc: []string{"nvc"}, cxx: []string{"nvc++"}, fc: []string{"nvfortran"}, env: []string{"NVHPC_ROOT"}},
-		{name: "clang", cc: []string{"clang"}, cxx: []string{"clang++"}},
-	} {
+	for _, candidate := range linuxCompilerCandidates() {
 		compiler, ok := probeCompiler(candidate)
 		if !ok {
-			continue
-		}
-		if activeCrayPrgEnvCompiler(compiler.Name) {
 			continue
 		}
 		if compiler.Name == "clang" && compilerLooksLikeAOCC(compiler) {
 			continue
 		}
-		if strings.HasPrefix(compiler.Prefix, "/opt/cray") {
+		if platformOwnsPrefix(compiler.Prefix) {
 			continue
 		}
 		appendCompilerProvider(&result.CompilerProviders, seen, compilerProviderFromExternal(compiler))
@@ -103,7 +93,7 @@ func verifiedCompilerModules(candidates []ModuleCandidate, hints *inspectorhints
 
 func compilerExternalFromVerification(name, module string, verification moduleVerification) (compilerExternal, bool) {
 	prefix := compilerPrefixFromVerification(name, verification)
-	if prefix == "" || strings.HasPrefix(prefix, "/opt/cray") {
+	if prefix == "" || platformOwnsPrefix(prefix) {
 		return compilerExternal{}, false
 	}
 	version := moduleVersion(module)
@@ -166,62 +156,43 @@ func compilerLanguagesFromVerification(name string, verification moduleVerificat
 }
 
 func compilerNameFromModule(module string) string {
-	switch {
-	case moduleHasSegmentPrefix(module, "prgenv-cray") || moduleHasSegment(module, "cce"):
-		return "cce"
-	case moduleHasSegmentPrefix(module, "prgenv-gnu") || moduleHasSegment(module, "gcc", "gcc-native"):
-		return "gcc"
-	case moduleHasSegmentPrefix(module, "prgenv-aocc") || moduleHasSegment(module, "aocc"):
-		return "aocc"
-	case moduleHasSegmentPrefix(module, "prgenv-intel") || moduleHasSegment(module, "intel"):
-		return "intel"
-	case moduleHasSegment(module, "oneapi"):
-		return "oneapi"
-	case moduleHasSegmentPrefix(module, "prgenv-nvidia") || moduleHasSegment(module, "nvhpc"):
-		return "nvhpc"
-	case moduleHasSegmentPrefix(module, "prgenv-amd") || moduleHasSegment(module, "rocmcc"):
-		return "rocmcc"
-	default:
-		return ""
+	for _, item := range policy().Compilers {
+		if moduleHasSegment(module, item.ModuleSegments...) || moduleHasSegmentPrefix(module, item.ModulePrefixes...) {
+			return item.Name
+		}
 	}
+	return ""
 }
 
 func isCrayCompilerModule(module string) bool {
-	return moduleHasSegmentPrefix(module, "prgenv-") || moduleHasSegment(module, "cce", "gcc-native", "rocmcc")
+	for _, item := range policy().Compilers {
+		if !item.PlatformOwned {
+			continue
+		}
+		if moduleHasSegment(module, item.ModuleSegments...) || moduleHasSegmentPrefix(module, item.ModulePrefixes...) {
+			return true
+		}
+	}
+	platform := crayPEPolicy()
+	return moduleHasSegmentPrefix(module, platform.ModulePrefixes...) || moduleHasSegment(module, platform.ModuleSegments...)
 }
 
 func compilerEnvKeys(name string) []string {
-	switch name {
-	case "gcc":
-		return []string{"GCC_PATH"}
-	case "aocc":
-		return []string{"AOCC_HOME", "AOCC_ROOT", "AOMP"}
-	case "intel", "oneapi":
-		return []string{"ONEAPI_ROOT", "CMPLR_ROOT", "INTEL_PATH", "INTEL_HOME"}
-	case "nvhpc":
-		return []string{"NVHPC_ROOT"}
-	case "rocmcc":
-		return []string{"ROCM_PATH"}
-	default:
-		return nil
+	if item, ok := compilerPolicyByName(name); ok {
+		return item.Env
 	}
+	return nil
 }
 
 func compilerCommands(name string) []string {
-	switch name {
-	case "gcc":
-		return []string{"gcc", "g++", "gfortran"}
-	case "aocc", "rocmcc":
-		return []string{"amdclang", "amdclang++", "flang", "clang", "clang++"}
-	case "intel", "oneapi":
-		return []string{"icx", "icpx", "ifx", "icc", "icpc", "ifort"}
-	case "nvhpc":
-		return []string{"nvc", "nvc++", "nvfortran"}
-	case "cce":
-		return []string{"cc", "CC", "ftn"}
-	default:
-		return nil
+	if item, ok := compilerPolicyByName(name); ok {
+		out := []string{}
+		out = append(out, item.CC...)
+		out = append(out, item.Cxx...)
+		out = append(out, item.Fortran...)
+		return out
 	}
+	return nil
 }
 
 func compilerExtras(hints *inspectorhints.Hints) []compilerExternal {
@@ -265,27 +236,29 @@ func appendCompilerProvider(providers *[]model.CompilerProvider, seen map[string
 	*providers = append(*providers, provider)
 }
 
-func activeCrayPrgEnvCompiler(name string) bool {
-	switch os.Getenv("PE_ENV") {
-	case "GNU":
-		return name == "gcc"
-	case "AOCC":
-		return name == "aocc"
-	case "INTEL":
-		return name == "intel" || name == "oneapi"
-	case "NVIDIA":
-		return name == "nvhpc"
-	default:
-		return false
-	}
-}
-
 type compilerCandidate struct {
 	name string
 	cc   []string
 	cxx  []string
 	fc   []string
 	env  []string
+}
+
+func linuxCompilerCandidates() []compilerCandidate {
+	out := []compilerCandidate{}
+	for _, item := range policy().Compilers {
+		if item.PlatformOwned {
+			continue
+		}
+		out = append(out, compilerCandidate{
+			name: item.Name,
+			cc:   item.CC,
+			cxx:  item.Cxx,
+			fc:   item.Fortran,
+			env:  item.Env,
+		})
+	}
+	return out
 }
 
 func probeCompiler(candidate compilerCandidate) (compilerExternal, bool) {

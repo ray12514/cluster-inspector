@@ -69,8 +69,8 @@ in ways that are hard to detect.
 
 Once built, the binary must run on a target host with **no source
 checkout, no `stack-planning` clone, and no network access**. All
-resource files (the embedded schema, GPU toolkit ceilings, ROCm
-component table, module patterns) live under `internal/resources/` and
+resource files (the embedded schema, discovery policy, GPU toolkit
+ceilings, ROCm component table, module patterns) live under `internal/resources/` and
 are embedded via `//go:embed` at build time.
 
 The build pipeline copies `profile-v1.json` from a local
@@ -101,6 +101,11 @@ schema.
   variables). If a Cray-specific branch remains, the nearby code or test
   must make clear why a generic Linux/module probe cannot provide that fact.
   Remove obsolete compatibility fields instead of transforming them later.
+- Do not add provider, site, filesystem, GPU toolkit, compiler, MPI, or
+  module-name literals directly to generic probes. Put broadly useful
+  discovery vocabulary in `internal/resources/discovery_policy.yaml`; put
+  platform-specific interrogation in a provider adapter behind
+  `ProbeProviderInventory`. The generic Linux adapter is the default path.
 - Do not silently fall back to login-shell behavior. If a non-login
   shell can't probe a fact, emit `unknown` with evidence — do not get
   the answer "right" by sourcing user dotfiles.
@@ -123,6 +128,27 @@ maintenance index for where each area lives:
 All phase-planned command bodies are implemented. If future work adds a new
 phase or changes the design contract, update this map and `PHASE_STATUS.md` in
 the same change.
+
+## Discovery policy and provider adapters
+
+Provider discovery has one public seam inside the probe layer:
+`ProbeProviderInventory(candidates, hints)`. Callers should not invoke
+compiler, MPI, GPU, or platform provider probes independently unless they are
+testing those adapters directly.
+
+The seam currently runs:
+
+1. `linux-generic`: policy-driven module, environment, command, and common
+   filesystem discovery for ordinary HPC Linux systems.
+2. `cray-pe`: Cray PE/CPE adapter logic only for facts the generic path cannot
+   safely infer, such as program-environment module evidence, Cray MPICH
+   prefixes, and PE-specific environment variables.
+
+`internal/resources/discovery_policy.yaml` is the first place to update when
+adding recognized compilers, MPI implementations, GPU toolkit roots,
+system-external focus packages, scratch/shared filesystem roots, fabric
+evidence, or platform-owned prefixes. Keeping this vocabulary in policy keeps
+the probe modules generic and makes future platform adapters smaller.
 
 ## Build and test
 

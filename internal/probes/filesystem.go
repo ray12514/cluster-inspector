@@ -77,20 +77,15 @@ func ProbeFilesystem() FilesystemResult {
 
 func candidateInstallTreePaths() []string {
 	user := os.Getenv("USER")
-	paths := []string{
-		os.Getenv("CLUSTER_INSPECTOR_INSTALL_TREE"),
-		"/shared/stack/spack/opt",
-		"/apps/spack/opt",
-		"/opt/spack/opt",
-	}
-	sharedRoots := []string{"/shared", "/apps", "/gpfs", "/lustre", "/project", "/projects", "/work"}
-	for _, root := range sharedRoots {
+	paths := []string{os.Getenv("CLUSTER_INSPECTOR_INSTALL_TREE")}
+	paths = append(paths, policy().Filesystem.InstallTreePaths...)
+	for _, root := range policy().Filesystem.SharedRoots {
 		if isDir(root) {
 			paths = append(paths, filepath.Join(root, "stack", "spack", "opt"))
 		}
 	}
 	if user != "" {
-		for _, root := range []string{"/scratch", "/local_scratch"} {
+		for _, root := range policy().Filesystem.ScratchRoots {
 			if isDir(root) {
 				paths = append(paths, filepath.Join(root, user, "stack", "spack", "opt"))
 			}

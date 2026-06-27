@@ -279,7 +279,7 @@ func validateLanguages(field string, languages []string) error {
 
 func validateProvenance(field, provenance string) error {
 	switch provenance {
-	case "site", "system", "vendor_bundled", "absent":
+	case "platform", "site", "system", "absent":
 		return nil
 	default:
 		return fmt.Errorf("%s invalid provenance %q", field, provenance)

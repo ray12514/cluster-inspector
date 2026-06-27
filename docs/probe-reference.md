@@ -20,6 +20,13 @@ System-wide probes cover OS/glibc, module tool, module candidates, fabric,
 platform provider inventory, compiler providers, MPI providers, GPU toolkit
 modules, focused ordinary system externals, and shared filesystem candidates.
 
+Provider inventory is collected through one probe-layer seam:
+`ProbeProviderInventory`. The default adapter is policy-driven generic Linux
+discovery. Platform adapters, such as `cray-pe`, may add facts only when the
+generic Linux path cannot safely infer them. Output remains generic
+`compiler_providers`, `mpi_providers`, `gpu_toolkit_modules`, and
+`provider_family` fields.
+
 ### `probe-node`
 
 Collects facts for one node type and writes a node fragment.
@@ -98,6 +105,23 @@ renderer may use a discovered package as a Spack external.
 Module verification uses non-login `bash -c`, initializes module machinery when
 available, purges/resets module state, loads exactly the candidate modules, and
 then probes environment variables and command paths.
+
+## Discovery policy
+
+Common discovery vocabulary lives in the embedded
+`internal/resources/discovery_policy.yaml` resource. That policy defines:
+
+- compiler, MPI, and GPU toolkit module-name segments;
+- environment variables and commands used by clean-shell verification;
+- common Linux toolkit roots such as ROCm and CUDA roots;
+- focused system externals, currently `openssl` and `curl`;
+- shared/scratch filesystem root candidates; and
+- platform-owned prefixes and module tokens for provider adapters.
+
+Generic probes should read this policy instead of hard-coding provider or site
+vocabulary. Add a provider adapter only for platform facts that need special
+interrogation beyond normal modules, commands, environment variables, and
+filesystem evidence.
 
 On current Cray PE/CPE NVIDIA systems, hints should use the observed platform
 modules, such as `PrgEnv-nvidia` plus the `nvidia/<version>` compiler module for

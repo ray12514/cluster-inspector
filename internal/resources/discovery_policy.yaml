@@ -1,0 +1,144 @@
+schema_version: 1
+
+compilers:
+  - name: gcc
+    cc: [gcc]
+    cxx: [g++]
+    fortran: [gfortran]
+    env: [GCC_PATH]
+    module_segments: [gcc, gcc-native]
+    module_prefixes: [PrgEnv-gnu]
+  - name: aocc
+    cc: [amdclang, clang]
+    cxx: [amdclang++, clang++]
+    fortran: [flang]
+    env: [AOCC_HOME, AOCC_ROOT, AOMP]
+    roots: [/opt/AMD/aocc-compiler, /opt/AMD]
+    module_segments: [aocc]
+    module_prefixes: [PrgEnv-aocc]
+  - name: oneapi
+    cc: [icx]
+    cxx: [icpx]
+    fortran: [ifx]
+    env: [ONEAPI_ROOT, CMPLR_ROOT]
+    module_segments: [oneapi]
+  - name: intel
+    cc: [icc]
+    cxx: [icpc]
+    fortran: [ifort]
+    env: [INTEL_PATH, INTEL_HOME]
+    roots: [/opt/intel/oneapi/compiler, /opt/intel]
+    module_segments: [intel]
+    module_prefixes: [PrgEnv-intel]
+  - name: nvhpc
+    cc: [nvc]
+    cxx: [nvc++]
+    fortran: [nvfortran]
+    env: [NVHPC_ROOT]
+    module_segments: [nvhpc]
+    module_prefixes: [PrgEnv-nvidia]
+  - name: clang
+    cc: [clang]
+    cxx: [clang++]
+    module_segments: [llvm, clang]
+  - name: cce
+    cc: [cc]
+    cxx: [CC]
+    fortran: [ftn]
+    env: [CRAY_PE_CCE_PREFIX, CRAY_CC_VERSION]
+    module_segments: [cce]
+    module_prefixes: [PrgEnv-cray]
+    platform_owned: true
+  - name: rocmcc
+    cc: [amdclang]
+    cxx: [amdclang++]
+    fortran: [flang]
+    env: [ROCM_PATH]
+    module_segments: [rocmcc, rocm]
+    module_prefixes: [PrgEnv-amd]
+    platform_owned: true
+
+mpi:
+  - name: cray-mpich
+    module_segments: [cray-mpich]
+    env: [MPICH_DIR, CRAY_MPICH_VERSION]
+    platform_owned: true
+  - name: openmpi
+    module_segments: [openmpi]
+    env: [MPI_HOME]
+    version_commands:
+      - [ompi_info, --parsable, --all]
+      - [mpirun, --version]
+  - name: mpich
+    module_segments: [mpich]
+    env: [MPICH_DIR, MPI_HOME]
+    version_commands:
+      - [mpichversion]
+      - [mpirun, --version]
+  - name: mvapich
+    module_segments: [mvapich, mvapich2]
+    env: [MPI_HOME]
+    version_commands:
+      - [mpirun, --version]
+  - name: intel-mpi
+    module_segments: [intel-mpi, impi]
+    env: [I_MPI_ROOT, MPI_HOME]
+    version_commands:
+      - [mpirun, --version]
+
+gpu_toolkits:
+  - name: rocm
+    module_segments: [rocm]
+    env: [ROCM_PATH]
+    commands: [hipcc]
+    roots: [/opt/rocm]
+    module_template: "rocm/{version}"
+    spack_components:
+      - { package: hip, prefix_suffix: hip }
+      - { package: hsa-rocr-dev }
+      - { package: comgr }
+      - { package: rocblas }
+      - { package: hipblas }
+      - { package: hipsparse }
+      - { package: rocprim, prefix_suffix: rocprim }
+      - { package: llvm-amdgpu }
+  - name: cudatoolkit
+    module_segments: [cuda, cudatoolkit]
+    env: [CUDA_HOME, CUDA_PATH]
+    commands: [nvcc]
+    roots: [/usr/local/cuda]
+    module_template: "cudatoolkit/{version}"
+  - name: nvhpc
+    module_segments: [nvhpc]
+    env: [NVHPC_ROOT]
+    commands: [nvc]
+    roots: [/opt/nvidia/hpc_sdk]
+    module_template: "nvhpc/{version}"
+
+system_externals:
+  default_focus: [openssl, curl]
+
+filesystem:
+  install_tree_paths:
+    - /shared/stack/spack/opt
+    - /apps/spack/opt
+    - /opt/spack/opt
+  shared_roots: [/shared, /apps, /gpfs, /lustre, /project, /projects, /work]
+  scratch_roots: [/scratch, /local_scratch]
+
+fabric:
+  cxi_device_paths: [/sys/class/cxi, /dev/cxi]
+  cxi_userspace_roots: [/opt/cray/pe/cxi]
+  infiniband_class_path: /sys/class/infiniband
+
+platforms:
+  cray-pe:
+    platform_family: cray-pe
+    evidence_paths: [/opt/cray/pe]
+    evidence_env: [CRAYPE_VERSION, PE_ENV]
+    evidence_loaded_module_segments: [prgenv-, cray-mpich, craype-, cray-libsci]
+    owned_prefixes: [/opt/cray]
+    module_categories: [cray_pe]
+    module_segments: [cray-mpich, cray-libsci]
+    module_prefixes: [prgenv-, craype-]
+    pe_root: /opt/cray/pe
