@@ -12,6 +12,7 @@ type SystemFragment struct {
 	CompilersExternal []CompilerExternal  `json:"compilers_external,omitempty" yaml:"compilers_external,omitempty"`
 	MPI               []MPIExternal       `json:"mpi,omitempty" yaml:"mpi,omitempty"`
 	GPUToolkitModules *GPUToolkitModules  `json:"gpu_toolkit_modules,omitempty" yaml:"gpu_toolkit_modules,omitempty"`
+	SystemExternals   []SystemExternal    `json:"system_externals,omitempty" yaml:"system_externals,omitempty"`
 	Filesystem        Filesystem          `json:"filesystem" yaml:"filesystem"`
 	ModulePaths       []string            `json:"module_paths,omitempty" yaml:"module_paths,omitempty"`
 	Evidence          map[string]Evidence `json:"evidence,omitempty" yaml:"evidence,omitempty"`

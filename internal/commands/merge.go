@@ -167,6 +167,7 @@ func mergeFragments(systemFragment model.SystemFragment, nodeFragments []model.N
 		CompilerProviders: toCompilerProviders(systemFragment),
 		MPIProviders:      toMPIProviders(systemFragment),
 		GPUToolkitModules: systemFragment.GPUToolkitModules,
+		SystemExternals:   systemFragment.SystemExternals,
 		Filesystem:        systemFragment.Filesystem,
 		NodeTypes:         nodeTypes,
 	}, nil

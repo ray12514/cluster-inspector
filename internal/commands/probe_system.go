@@ -15,7 +15,7 @@ import (
 // subcommand.
 //
 // Runs the system-wide probes (OS, glibc, modules, fabric, vendor_cray,
-// compilers_external, mpi, gpu_toolkit_modules, filesystem) and emits a
+// compilers_external, mpi, gpu_toolkit_modules, system_externals, filesystem) and emits a
 // system fragment.
 func NewProbeSystemCommand() *cobra.Command {
 	var systemName string
@@ -27,7 +27,7 @@ func NewProbeSystemCommand() *cobra.Command {
 		Short: "Probe system-wide facts and emit a system fragment",
 		Long: `probe-system collects system-wide facts (OS, glibc, module tool,
 fabric, Cray PE inventory, compiler externals, MPI externals, GPU toolkit
-modules, install-tree candidates) and emits a system fragment that can be
+modules, system package externals, install-tree candidates) and emits a system fragment that can be
 merged with per-node fragments by the merge command.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,6 +53,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	compilers := probes.ProbeCompilersExternalWithModules(modules.Candidates, hints)
 	mpi := probes.ProbeMPIWithModules(modules.Candidates, hints)
 	gpuToolkits := probes.ProbeGPUToolkitModulesWithModules(modules.Candidates, hints)
+	systemExternals := probes.ProbeSystemExternals()
 	filesystem := probes.ProbeFilesystem()
 
 	evidence := map[string]model.Evidence{}
@@ -63,6 +64,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 	mergeEvidence(evidence, compilers.Evidence)
 	mergeEvidence(evidence, mpi.Evidence)
 	mergeEvidence(evidence, gpuToolkits.Evidence)
+	mergeEvidence(evidence, systemExternals.Evidence)
 	mergeEvidence(evidence, filesystem.Evidence)
 
 	return &model.SystemFragment{
@@ -75,6 +77,7 @@ func buildSystemFragment(systemName string, hints *inspectorhints.Hints) *model.
 		CompilersExternal: compilers.Compilers,
 		MPI:               mpi.MPI,
 		GPUToolkitModules: gpuToolkits.Toolkits,
+		SystemExternals:   systemExternals.Externals,
 		Filesystem:        filesystem.Filesystem,
 		ModulePaths:       modules.ModulePaths,
 		Evidence:          evidence,
