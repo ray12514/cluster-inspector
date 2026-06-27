@@ -15,6 +15,7 @@ type Profile struct {
 	CompilerProviders []CompilerProvider  `json:"compiler_providers,omitempty" yaml:"compiler_providers,omitempty"`
 	MPIProviders      []MPIProvider       `json:"mpi_providers,omitempty" yaml:"mpi_providers,omitempty"`
 	GPUToolkitModules *GPUToolkitModules  `json:"gpu_toolkit_modules,omitempty" yaml:"gpu_toolkit_modules,omitempty"`
+	SystemExternals   []SystemExternal    `json:"system_externals,omitempty" yaml:"system_externals,omitempty"`
 	Filesystem        Filesystem          `json:"filesystem" yaml:"filesystem"`
 	NodeTypes         map[string]NodeType `json:"node_types" yaml:"node_types"`
 }
@@ -172,6 +173,23 @@ type NvhpcToolkitModule struct {
 type SpackComponent struct {
 	Package string `json:"package" yaml:"package"`
 	Prefix  string `json:"prefix" yaml:"prefix"`
+}
+
+// SystemExternal is an ordinary package external such as OpenSSL or curl.
+type SystemExternal struct {
+	Name           string             `json:"name" yaml:"name"`
+	Version        string             `json:"version" yaml:"version"`
+	Prefix         string             `json:"prefix" yaml:"prefix"`
+	ProviderFamily string             `json:"provider_family" yaml:"provider_family"`
+	Variants       string             `json:"variants,omitempty" yaml:"variants,omitempty"`
+	Modules        []string           `json:"modules,omitempty" yaml:"modules,omitempty"`
+	Detection      *ExternalDetection `json:"detection,omitempty" yaml:"detection,omitempty"`
+}
+
+// ExternalDetection records how an external fact was obtained.
+type ExternalDetection struct {
+	Confidence string `json:"confidence" yaml:"confidence"`
+	Source     string `json:"source" yaml:"source"`
 }
 
 type Filesystem struct {
