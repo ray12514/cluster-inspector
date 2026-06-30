@@ -22,9 +22,9 @@ type FilesystemResult struct {
 func ProbeFilesystem() FilesystemResult {
 	result := FilesystemResult{
 		// Non-nil so yaml.v3 emits an empty array, not `null`. The
-		// schema requires `install_tree_candidates` to be an array.
-		// minItems is enforced separately at render time; here we just
-		// guarantee the shape.
+		// schema requires `install_tree_candidates` to be an array, but
+		// allows it to be empty because deployment.yaml owns the selected
+		// install tree.
 		Filesystem: model.Filesystem{
 			InstallTreeCandidates: make([]model.InstallTreeCandidate, 0),
 		},

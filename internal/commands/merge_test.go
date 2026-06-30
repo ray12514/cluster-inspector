@@ -70,6 +70,25 @@ func TestMergeFragmentsOutputIsByteIdentical(t *testing.T) {
 	}
 }
 
+func TestMergeFragmentsAllowsEmptyFilesystemCandidates(t *testing.T) {
+	systemFragment := minimalSystemFragment()
+	systemFragment.Filesystem.InstallTreeCandidates = []model.InstallTreeCandidate{}
+
+	profile, err := mergeFragments(systemFragment, []model.NodeFragment{
+		minimalNodeFragment("login", "build_host", nil),
+		minimalNodeFragment("cpu_compute", "runtime", nil),
+	})
+	if err != nil {
+		t.Fatalf("mergeFragments returned error: %v", err)
+	}
+	if err := model.ValidateProfile(profile); err != nil {
+		t.Fatalf("empty filesystem candidates should validate: %v", err)
+	}
+	if got := len(profile.Filesystem.InstallTreeCandidates); got != 0 {
+		t.Fatalf("len(InstallTreeCandidates) = %d, want 0", got)
+	}
+}
+
 // TestMergeRoundTripIsByteIdentical is the design-doc-strict version of
 // the determinism acceptance: re-running the FULL merge → write pipeline
 // on the same fragments must produce byte-identical YAML. Catches any
