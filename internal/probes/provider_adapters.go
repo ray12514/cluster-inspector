@@ -1,6 +1,9 @@
 package probes
 
 import (
+	"sort"
+	"strings"
+
 	inspectorhints "github.com/ray12514/cluster-inspector/internal/hints"
 	"github.com/ray12514/cluster-inspector/internal/model"
 )
@@ -71,10 +74,141 @@ func mergeProviderInventory(dst *ProviderInventoryResult, src ProviderInventoryR
 		}
 	}
 	mergeProviderEvidence(dst.Evidence, src.Evidence)
+	dst.CompilerProviders = dedupeCompilerProviders(dst.CompilerProviders)
+	dst.MPIProviders = dedupeMPIProviders(dst.MPIProviders)
 }
 
 func mergeProviderEvidence(dst map[string]model.Evidence, src map[string]model.Evidence) {
 	for key, value := range src {
 		dst[key] = value
 	}
+}
+
+func dedupeCompilerProviders(providers []model.CompilerProvider) []model.CompilerProvider {
+	out := make([]model.CompilerProvider, 0, len(providers))
+	index := map[string]int{}
+	for _, provider := range providers {
+		key := compilerProviderInstanceKey(provider)
+		if pos, ok := index[key]; ok {
+			out[pos] = mergeCompilerProvider(out[pos], provider)
+			continue
+		}
+		index[key] = len(out)
+		out = append(out, provider)
+	}
+	return out
+}
+
+func compilerProviderInstanceKey(provider model.CompilerProvider) string {
+	return strings.Join([]string{
+		provider.Name,
+		provider.Version,
+		cleanProviderPrefix(provider.Prefix),
+	}, "\x00")
+}
+
+func mergeCompilerProvider(dst, src model.CompilerProvider) model.CompilerProvider {
+	dst.ProviderFamily = preferredProviderFamily(dst.ProviderFamily, src.ProviderFamily)
+	if dst.PlatformFamily == "" {
+		dst.PlatformFamily = src.PlatformFamily
+	}
+	dst.Languages = mergeStringLists(dst.Languages, src.Languages)
+	dst.Modules = mergeStringLists(dst.Modules, src.Modules)
+	if dst.Compilers == nil {
+		dst.Compilers = src.Compilers
+	}
+	return dst
+}
+
+func dedupeMPIProviders(providers []model.MPIProvider) []model.MPIProvider {
+	out := make([]model.MPIProvider, 0, len(providers))
+	index := map[string]int{}
+	for _, provider := range providers {
+		key := mpiProviderInstanceKey(provider)
+		if pos, ok := index[key]; ok {
+			out[pos] = mergeMPIProvider(out[pos], provider)
+			continue
+		}
+		index[key] = len(out)
+		out = append(out, provider)
+	}
+	return out
+}
+
+func mpiProviderInstanceKey(provider model.MPIProvider) string {
+	return strings.Join([]string{
+		provider.Name,
+		provider.Version,
+		cleanProviderPrefix(provider.Prefix),
+		provider.Compiler,
+		mpiFlavorSignature(provider.Flavors),
+	}, "\x00")
+}
+
+func mergeMPIProvider(dst, src model.MPIProvider) model.MPIProvider {
+	dst.ProviderFamily = preferredProviderFamily(dst.ProviderFamily, src.ProviderFamily)
+	if dst.PlatformFamily == "" {
+		dst.PlatformFamily = src.PlatformFamily
+	}
+	dst.Modules = mergeStringLists(dst.Modules, src.Modules)
+	if dst.Compatibility == nil {
+		dst.Compatibility = src.Compatibility
+	} else if src.Compatibility != nil {
+		dst.Compatibility.Compilers = mergeStringLists(
+			dst.Compatibility.Compilers,
+			src.Compatibility.Compilers,
+		)
+	}
+	return dst
+}
+
+func cleanProviderPrefix(prefix string) string {
+	return strings.TrimRight(strings.TrimSpace(prefix), "/")
+}
+
+func preferredProviderFamily(a, b string) string {
+	rank := map[string]int{"system": 0, "site": 1, "platform": 2}
+	if rank[b] > rank[a] {
+		return b
+	}
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+func mergeStringLists(a, b []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(a)+len(b))
+	for _, values := range [][]string{a, b} {
+		for _, value := range values {
+			if value == "" || seen[value] {
+				continue
+			}
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func mpiFlavorSignature(flavors map[string]model.MPIFlavor) string {
+	if len(flavors) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(flavors))
+	for compiler := range flavors {
+		keys = append(keys, compiler)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, compiler := range keys {
+		flavor := flavors[compiler]
+		parts = append(parts, strings.Join([]string{
+			compiler,
+			cleanProviderPrefix(flavor.Prefix),
+			strings.Join(flavor.Modules, ","),
+		}, "="))
+	}
+	return strings.Join(parts, "|")
 }
